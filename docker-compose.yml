@@ -18,6 +18,9 @@ services:
       - "443:443"
     depends_on:
       - backend
+    environment:
+      - NODE_ENV=production
+      - VITE_GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
     command: '/bin/sh -c ''while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g "daemon off;"'''
 
   backend:

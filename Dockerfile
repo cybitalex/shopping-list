@@ -28,4 +28,7 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
 EXPOSE 443
 
+# Set environment variables
+ENV NODE_ENV=production
+
 CMD ["nginx", "-g", "daemon off;"] 

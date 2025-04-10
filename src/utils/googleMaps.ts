@@ -1,3 +1,10 @@
+declare global {
+  interface Window {
+    google: typeof google;
+    initGoogleMaps: () => void;
+  }
+}
+
 let isGoogleMapsLoaded = false;
 let loadPromise: Promise<void> | null = null;
 
@@ -25,7 +32,7 @@ export const loadGoogleMaps = (apiKey: string): Promise<void> => {
     }
 
     const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,geometry&v=beta`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,geometry`;
     script.async = true;
     script.defer = true;
 
