@@ -11,12 +11,25 @@ export const loadGoogleMaps = (apiKey: string): Promise<void> => {
   }
 
   loadPromise = new Promise((resolve, reject) => {
+    // Check if script already exists
+    const existingScript = document.querySelector(
+      'script[src*="maps.googleapis.com/maps/api/js"]'
+    );
+    if (existingScript) {
+      if (window.google && window.google.maps) {
+        isGoogleMapsLoaded = true;
+        resolve();
+        return;
+      }
+      existingScript.remove();
+    }
+
     const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,geometry&callback=initGoogleMaps`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,geometry`;
     script.async = true;
     script.defer = true;
 
-    window.initGoogleMaps = () => {
+    script.onload = () => {
       isGoogleMapsLoaded = true;
       resolve();
     };
@@ -32,7 +45,7 @@ export const loadGoogleMaps = (apiKey: string): Promise<void> => {
 };
 
 export const getGoogleMapsService = (): typeof google.maps => {
-  if (!isGoogleMapsLoaded) {
+  if (!isGoogleMapsLoaded || !window.google || !window.google.maps) {
     throw new Error("Google Maps is not loaded yet");
   }
   return window.google.maps;

@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useRef } from "react";
+import React, { useEffect, useCallback, useRef, useState } from "react";
 import { GoogleMap, useJsApiLoader } from "@react-google-maps/api";
 import {
   Box,
@@ -14,12 +14,13 @@ import MenuIcon from "@mui/icons-material/Menu";
 import SearchIcon from "@mui/icons-material/Search";
 import type { Store } from "../types/store";
 import { alpha } from "@mui/material/styles";
+import { getGoogleMapsService } from "../utils/googleMaps";
 
 interface MapProps {
-  currentLocation?: { lat: number; lng: number };
+  currentLocation: { lat: number; lng: number } | null;
   stores: Store[];
-  selectedStore?: Store | null;
-  onStoreSelect?: (store: Store) => void;
+  onStoreSelect: (store: Store) => void;
+  selectedStore: Store | null;
   cheapestStore?: Store | null;
   onAddItem?: (item: string) => void;
   onSearchStores?: (
@@ -43,8 +44,8 @@ const libraries: ("marker" | "places")[] = ["marker", "places"];
 const Map: React.FC<MapProps> = ({
   currentLocation,
   stores,
-  selectedStore,
   onStoreSelect,
+  selectedStore,
   cheapestStore,
   onAddItem,
   onSearchStores,
@@ -60,8 +61,9 @@ const Map: React.FC<MapProps> = ({
   const [isDrawerOpen, setIsDrawerOpen] = React.useState(false);
   const [newItem, setNewItem] = React.useState("");
   const [searchQuery, setSearchQuery] = React.useState("");
-  const mapRef = React.useRef<google.maps.Map | null>(null);
-  const [markers, setMarkers] = React.useState<MarkerInstance[]>([]);
+  const mapRef = React.useRef<HTMLDivElement>(null);
+  const [map, setMap] = useState<google.maps.Map | null>(null);
+  const [markers, setMarkers] = useState<google.maps.Marker[]>([]);
   const searchTimeoutRef = useRef<number | null>(null);
 
   const handleSearch = useCallback(() => {
@@ -93,85 +95,69 @@ const Map: React.FC<MapProps> = ({
     }
   };
 
-  const onLoad = React.useCallback((map: google.maps.Map) => {
-    mapRef.current = map;
-  }, []);
-
-  const onUnmount = React.useCallback(() => {
-    mapRef.current = null;
-  }, []);
-
-  const createMarker = useCallback(
-    (
-      position: google.maps.LatLngLiteral,
-      options: {
-        title?: string;
-        isSelected?: boolean;
-        isCheapest?: boolean;
-        isCurrentLocation?: boolean;
-      }
-    ) => {
-      const { title, isSelected, isCheapest, isCurrentLocation } = options;
-
-      const markerDiv = document.createElement("div");
-      markerDiv.className = "custom-marker";
-
-      let color = theme.palette.error.main;
-      if (isCurrentLocation) {
-        color = theme.palette.primary.main;
-      } else if (isCheapest) {
-        color = theme.palette.success.main;
-      } else if (isSelected) {
-        color = theme.palette.primary.main;
-      }
-
-      const size = isCurrentLocation ? 16 : 24;
-
-      markerDiv.style.width = `${size}px`;
-      markerDiv.style.height = `${size}px`;
-      markerDiv.style.borderRadius = isCurrentLocation
-        ? "50%"
-        : "0 50% 50% 50%";
-      markerDiv.style.backgroundColor = color;
-      markerDiv.style.border = "2px solid white";
-      markerDiv.style.transform = isCurrentLocation ? "none" : "rotate(45deg)";
-      markerDiv.style.transition = "all 0.3s ease";
-
-      if (isSelected) {
-        markerDiv.style.animation = "bounce 1s infinite";
-      }
-
-      const marker = new google.maps.marker.AdvancedMarkerElement({
-        position,
-        title,
-        content: markerDiv,
-      });
-
-      return marker;
-    },
-    [theme]
-  );
-
   useEffect(() => {
     if (!mapRef.current || !currentLocation) return;
 
-    const currentLocationMarker = createMarker(currentLocation, {
+    const initMap = async () => {
+      try {
+        const googleMaps = getGoogleMapsService();
+        const newMap = new googleMaps.Map(mapRef.current!, {
+          center: currentLocation,
+          zoom: 13,
+          mapId: "YOUR_MAP_ID", // Replace with your actual Map ID
+        });
+
+        setMap(newMap);
+      } catch (error) {
+        console.error("Error initializing map:", error);
+      }
+    };
+
+    initMap();
+  }, [currentLocation]);
+
+  useEffect(() => {
+    if (!map || !currentLocation) return;
+
+    // Clear existing markers
+    markers.forEach((marker) => marker.setMap(null));
+    setMarkers([]);
+
+    const googleMaps = getGoogleMapsService();
+
+    // Add current location marker
+    const currentLocationMarker = new googleMaps.Marker({
+      position: currentLocation,
+      map,
       title: "Your Location",
-      isCurrentLocation: true,
-    }) as MarkerInstance;
+      icon: {
+        path: googleMaps.SymbolPath.CIRCLE,
+        scale: 10,
+        fillColor: "#4285F4",
+        fillOpacity: 1,
+        strokeWeight: 2,
+        strokeColor: "#FFFFFF",
+      },
+    });
 
+    // Add store markers
     const storeMarkers = stores.map((store) => {
-      const marker = createMarker(
-        { lat: store.latitude, lng: store.longitude },
-        {
-          title: store.name,
-          isSelected: selectedStore?.id === store.id,
-          isCheapest: cheapestStore?.id === store.id,
-        }
-      ) as MarkerInstance;
+      const marker = new googleMaps.Marker({
+        position: { lat: store.latitude, lng: store.longitude },
+        map,
+        title: store.name,
+        icon: {
+          path: googleMaps.SymbolPath.CIRCLE,
+          scale: 8,
+          fillColor: store.id === selectedStore?.id ? "#0F9D58" : "#DB4437",
+          fillOpacity: 1,
+          strokeWeight: 2,
+          strokeColor: "#FFFFFF",
+        },
+      });
 
-      marker.addEventListener("gmp-click", () => {
-        onStoreSelect?.(store);
+      marker.addListener("click", () => {
+        onStoreSelect(store);
       });
 
       return marker;
@@ -179,21 +165,11 @@ const Map: React.FC<MapProps> = ({
 
     setMarkers([currentLocationMarker, ...storeMarkers]);
 
+    // Cleanup function
     return () => {
-      currentLocationMarker.setMap(null);
-      storeMarkers.forEach((marker) => {
-        marker.setMap(null);
-      });
+      markers.forEach((marker) => marker.setMap(null));
     };
-  }, [
-    currentLocation,
-    stores,
-    selectedStore,
-    cheapestStore,
-    mapRef.current,
-    createMarker,
-    onStoreSelect,
-  ]);
+  }, [map, currentLocation, stores, selectedStore, onStoreSelect]);
 
   if (!isLoaded) {
     return (
@@ -236,20 +212,13 @@ const Map: React.FC<MapProps> = ({
             <MenuIcon />
           </IconButton>
         )}
-        <GoogleMap
-          mapContainerStyle={containerStyle}
-          center={currentLocation}
-          zoom={13}
-          onLoad={onLoad}
-          onUnmount={onUnmount}
-          options={{
-            styles: [
-              {
-                featureType: "poi",
-                elementType: "labels",
-                stylers: [{ visibility: "off" }],
-              },
-            ],
+        <Box
+          ref={mapRef}
+          sx={{
+            width: "100%",
+            height: "400px",
+            borderRadius: 2,
+            overflow: "hidden",
           }}
         />
         <Box
