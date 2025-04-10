@@ -1,23 +1,16 @@
-import React, { useEffect, useCallback, useRef, useState } from "react";
-import { GoogleMap, useJsApiLoader, OverlayView } from "@react-google-maps/api";
+import React, { useEffect, useCallback, useRef } from "react";
+import { GoogleMap, useJsApiLoader } from "@react-google-maps/api";
 import {
   Box,
   CircularProgress,
   Paper,
-  List,
-  ListItem,
-  ListItemText,
-  Typography,
   IconButton,
   useMediaQuery,
   useTheme,
-  Button,
-  Stack,
   TextField,
   InputAdornment,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
-import AddIcon from "@mui/icons-material/Add";
 import SearchIcon from "@mui/icons-material/Search";
 import type { Store } from "../types/store";
 import { alpha } from "@mui/material/styles";
@@ -28,7 +21,6 @@ interface MapProps {
   selectedStore?: Store | null;
   onStoreSelect?: (store: Store) => void;
   cheapestStore?: Store | null;
-  onCompareClick?: () => void;
   onAddItem?: (item: string) => void;
   onSearchStores?: (
     query: string,
@@ -46,7 +38,6 @@ const containerStyle = {
   borderRadius: "8px",
 };
 
-// Move libraries array outside component
 const libraries: ("marker" | "places")[] = ["marker", "places"];
 
 const Map: React.FC<MapProps> = ({
@@ -55,7 +46,6 @@ const Map: React.FC<MapProps> = ({
   selectedStore,
   onStoreSelect,
   cheapestStore,
-  onCompareClick,
   onAddItem,
   onSearchStores,
 }) => {
@@ -77,15 +67,13 @@ const Map: React.FC<MapProps> = ({
   const handleSearch = useCallback(() => {
     if (!currentLocation || !searchQuery.trim()) return;
 
-    // Clear any existing timeout
     if (searchTimeoutRef.current) {
       window.clearTimeout(searchTimeoutRef.current);
     }
 
-    // Set a new timeout for debouncing
     searchTimeoutRef.current = window.setTimeout(() => {
       onSearchStores?.(searchQuery.trim(), currentLocation);
-    }, 500); // 500ms debounce
+    }, 500);
 
     return () => {
       if (searchTimeoutRef.current) {
@@ -94,7 +82,6 @@ const Map: React.FC<MapProps> = ({
     };
   }, [currentLocation, searchQuery, onSearchStores]);
 
-  // Trigger search when query changes
   useEffect(() => {
     handleSearch();
   }, [handleSearch]);
@@ -114,7 +101,6 @@ const Map: React.FC<MapProps> = ({
     mapRef.current = null;
   }, []);
 
-  // Memoize the marker creation function
   const createMarker = useCallback(
     (
       position: google.maps.LatLngLiteral,
@@ -169,13 +155,11 @@ const Map: React.FC<MapProps> = ({
   useEffect(() => {
     if (!mapRef.current || !currentLocation) return;
 
-    // Create current location marker
     const currentLocationMarker = createMarker(currentLocation, {
       title: "Your Location",
       isCurrentLocation: true,
     }) as MarkerInstance;
 
-    // Create store markers
     const storeMarkers = stores.map((store) => {
       const marker = createMarker(
         { lat: store.latitude, lng: store.longitude },
@@ -186,7 +170,6 @@ const Map: React.FC<MapProps> = ({
         }
       ) as MarkerInstance;
 
-      // Use gmp-click instead of click
       marker.addEventListener("gmp-click", () => {
         onStoreSelect?.(store);
       });
@@ -194,10 +177,8 @@ const Map: React.FC<MapProps> = ({
       return marker;
     });
 
-    // Set markers state
     setMarkers([currentLocationMarker, ...storeMarkers]);
 
-    // Cleanup function
     return () => {
       currentLocationMarker.setMap(null);
       storeMarkers.forEach((marker) => {
@@ -249,30 +230,41 @@ const Map: React.FC<MapProps> = ({
               top: 8,
               left: 8,
               zIndex: 1,
-              backgroundColor: "white",
-              "&:hover": {
-                backgroundColor: "rgba(255, 255, 255, 0.9)",
-              },
+              bgcolor: alpha(theme.palette.background.paper, 0.8),
             }}
           >
             <MenuIcon />
           </IconButton>
         )}
-
+        <GoogleMap
+          mapContainerStyle={containerStyle}
+          center={currentLocation}
+          zoom={13}
+          onLoad={onLoad}
+          onUnmount={onUnmount}
+          options={{
+            styles: [
+              {
+                featureType: "poi",
+                elementType: "labels",
+                stylers: [{ visibility: "off" }],
+              },
+            ],
+          }}
+        />
         <Box
           sx={{
             position: "absolute",
             top: 8,
             right: 8,
             zIndex: 1,
-            width: isMobile ? "calc(100% - 48px)" : 300,
-            ml: isMobile ? 6 : 0,
+            display: "flex",
+            gap: 1,
           }}
         >
           <TextField
-            fullWidth
             size="small"
-            placeholder="Search for stores..."
+            placeholder="Search stores..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             InputProps={{
@@ -283,83 +275,13 @@ const Map: React.FC<MapProps> = ({
               ),
             }}
             sx={{
-              backgroundColor: "white",
-              borderRadius: 1,
+              bgcolor: alpha(theme.palette.background.paper, 0.8),
               "& .MuiOutlinedInput-root": {
-                "& fieldset": {
-                  borderColor: "transparent",
-                },
-                "&:hover fieldset": {
-                  borderColor: "transparent",
-                },
-                "&.Mui-focused fieldset": {
-                  borderColor: "transparent",
-                },
+                borderRadius: 2,
               },
             }}
           />
         </Box>
-
-        <style>
-          {`
-            @keyframes bounce {
-              0%, 100% { transform: rotate(45deg) translateY(0); }
-              50% { transform: rotate(45deg) translateY(-10px); }
-            }
-          `}
-        </style>
-
-        <GoogleMap
-          mapContainerStyle={containerStyle}
-          center={currentLocation || { lat: 0, lng: 0 }}
-          zoom={12}
-          onLoad={onLoad}
-          onUnmount={onUnmount}
-          options={{
-            zoomControl: true,
-            mapTypeControl: false,
-            streetViewControl: false,
-            fullscreenControl: false,
-            mapId: import.meta.env.VITE_GOOGLE_MAPS_ID,
-          }}
-        >
-          {stores.map(
-            (store) =>
-              cheapestStore?.id === store.id && (
-                <OverlayView
-                  key={store.id}
-                  position={{ lat: store.latitude, lng: store.longitude }}
-                  mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
-                >
-                  <Box
-                    sx={{
-                      position: "absolute",
-                      transform: "translate(-50%, -50%)",
-                      width: "40px",
-                      height: "40px",
-                      borderRadius: "50%",
-                      backgroundColor: alpha(theme.palette.success.main, 0.3),
-                      animation: "pulse 2s infinite",
-                      "@keyframes pulse": {
-                        "0%": {
-                          transform: "translate(-50%, -50%) scale(1)",
-                          opacity: 0.3,
-                        },
-                        "50%": {
-                          transform: "translate(-50%, -50%) scale(1.5)",
-                          opacity: 0.1,
-                        },
-                        "100%": {
-                          transform: "translate(-50%, -50%) scale(1)",
-                          opacity: 0.3,
-                        },
-                      },
-                    }}
-                  />
-                </OverlayView>
-              )
-          )}
-        </GoogleMap>
       </Paper>
     </Box>
   );

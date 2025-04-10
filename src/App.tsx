@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
 import { ThemeProvider } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
-import { Box, Container, Alert, Snackbar, useMediaQuery } from "@mui/material";
-import LocationOnIcon from "@mui/icons-material/LocationOn";
+import { Box, Container, Alert, Snackbar } from "@mui/material";
 import theme from "./theme";
 import GroceryList from "./components/GroceryList";
 import StoreComparison from "./components/StoreComparison";
@@ -28,14 +27,11 @@ function App() {
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
   const [isLocatingStores, setIsLocatingStores] = useState(true);
   const [cheapestStore, setCheapestStore] = useState<Store | null>(null);
-  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
   useEffect(() => {
     const initializeApp = async () => {
       try {
-        // Load Google Maps first
         await loadGoogleMaps(import.meta.env.VITE_GOOGLE_MAPS_API_KEY);
-        // Then get location and search for stores
         await getCurrentLocation();
       } catch (error) {
         console.error("Initialization error:", error);
@@ -59,7 +55,6 @@ function App() {
       const location = { lat: latitude, lng: longitude };
       setCurrentLocation(location);
 
-      // Automatically search for stores when location is obtained
       await handleSearchStores("grocery store", location);
     } catch (err) {
       console.error("Location error:", err);
