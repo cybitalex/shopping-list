@@ -25,11 +25,15 @@ export const loadGoogleMaps = (apiKey: string): Promise<void> => {
     }
 
     const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,geometry`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,geometry&v=beta`;
     script.async = true;
     script.defer = true;
 
     script.onload = () => {
+      if (!window.google || !window.google.maps) {
+        reject(new Error("Google Maps failed to load properly"));
+        return;
+      }
       isGoogleMapsLoaded = true;
       resolve();
     };
@@ -49,4 +53,11 @@ export const getGoogleMapsService = (): typeof google.maps => {
     throw new Error("Google Maps is not loaded yet");
   }
   return window.google.maps;
+};
+
+export const getPlacesService = (
+  map: google.maps.Map
+): google.maps.places.PlacesService => {
+  const googleMaps = getGoogleMapsService();
+  return new googleMaps.places.PlacesService(map);
 };

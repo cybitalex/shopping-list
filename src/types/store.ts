@@ -6,6 +6,4 @@ export interface Store {
   longitude: number;
   rating: number;
   priceLevel: number;
-  isOpen: boolean;
-  distance: number;
 }

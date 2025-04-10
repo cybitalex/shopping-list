@@ -25,25 +25,32 @@ export const searchNearbyStores = async (
   location: { lat: number; lng: number },
   query: string
 ): Promise<Store[]> => {
-  const maps = getGoogleMapsService();
+  try {
+    const googleMaps = getGoogleMapsService();
+    const service = new googleMaps.places.PlacesService(
+      document.createElement("div")
+    );
 
-  const service = new maps.places.PlacesService(document.createElement("div"));
+    return new Promise((resolve, reject) => {
+      service.nearbySearch(
+        {
+          location: new googleMaps.LatLng(location.lat, location.lng),
+          radius: 5000,
+          type: "store",
+          keyword: query,
+        },
+        (
+          results: google.maps.places.PlaceResult[] | null,
+          status: google.maps.places.PlacesServiceStatus
+        ) => {
+          if (status !== googleMaps.places.PlacesServiceStatus.OK || !results) {
+            reject(new Error(`Places service returned status: ${status}`));
+            return;
+          }
 
-  return new Promise((resolve, reject) => {
-    service.nearbySearch(
-      {
-        location: new maps.LatLng(location.lat, location.lng),
-        radius: 5000,
-        type: "grocery_or_supermarket",
-        keyword: query,
-      },
-      (
-        results: google.maps.places.PlaceResult[] | null,
-        status: google.maps.places.PlacesServiceStatus
-      ) => {
-        if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-          const stores: Store[] = results.map(
-            (place: google.maps.places.PlaceResult) => ({
+          const stores: Store[] = results
+            .filter((place) => place.geometry?.location)
+            .map((place) => ({
               id: place.place_id || "",
               name: place.name || "",
               address: place.vicinity || "",
@@ -51,16 +58,14 @@ export const searchNearbyStores = async (
               longitude: place.geometry?.location?.lng() || 0,
               rating: place.rating || 0,
               priceLevel: place.price_level || 0,
-              isOpen: place.opening_hours?.isOpen() || false,
-              distance: 0, // This will be calculated later
-              userRatingsTotal: place.user_ratings_total || 0,
-            })
-          );
+            }));
+
           resolve(stores);
-        } else {
-          reject(new Error(`Places search failed: ${status}`));
         }
-      }
-    );
-  });
+      );
+    });
+  } catch (error) {
+    console.error("Error searching nearby stores:", error);
+    throw error;
+  }
 };

@@ -14,7 +14,7 @@ import MenuIcon from "@mui/icons-material/Menu";
 import SearchIcon from "@mui/icons-material/Search";
 import type { Store } from "../types/store";
 import { alpha } from "@mui/material/styles";
-import { getGoogleMapsService } from "../utils/googleMaps";
+import { getGoogleMapsService, getPlacesService } from "../utils/googleMaps";
 
 interface MapProps {
   currentLocation: { lat: number; lng: number } | null;
@@ -65,6 +65,7 @@ const Map: React.FC<MapProps> = ({
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [markers, setMarkers] = useState<google.maps.Marker[]>([]);
   const searchTimeoutRef = useRef<number | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const handleSearch = useCallback(() => {
     if (!currentLocation || !searchQuery.trim()) return;
@@ -105,11 +106,18 @@ const Map: React.FC<MapProps> = ({
           center: currentLocation,
           zoom: 13,
           mapId: "YOUR_MAP_ID", // Replace with your actual Map ID
+          disableDefaultUI: false,
+          zoomControl: true,
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: true,
         });
 
         setMap(newMap);
+        setIsLoading(false);
       } catch (error) {
         console.error("Error initializing map:", error);
+        setIsLoading(false);
       }
     };
 
@@ -171,14 +179,14 @@ const Map: React.FC<MapProps> = ({
     };
   }, [map, currentLocation, stores, selectedStore, onStoreSelect]);
 
-  if (!isLoaded) {
+  if (isLoading) {
     return (
       <Box
         sx={{
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
-          height: "100%",
+          height: "400px",
           borderRadius: 2,
           bgcolor: "background.paper",
         }}
