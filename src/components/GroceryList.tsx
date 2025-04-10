@@ -1,16 +1,14 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import {
-  Card,
-  CardContent,
+  Box,
   Typography,
   List,
   ListItem,
   ListItemText,
-  ListItemSecondaryAction,
   IconButton,
   TextField,
-  Button,
-  Box,
+  Paper,
+  Divider,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
@@ -22,7 +20,11 @@ interface GroceryListProps {
   onDeleteItem: (id: number) => void;
 }
 
-const GroceryList = ({ items, onAddItem, onDeleteItem }: GroceryListProps) => {
+const GroceryList: React.FC<GroceryListProps> = ({
+  items,
+  onAddItem,
+  onDeleteItem,
+}) => {
   const [newItem, setNewItem] = useState("");
 
   const handleAddItem = () => {
@@ -39,62 +41,69 @@ const GroceryList = ({ items, onAddItem, onDeleteItem }: GroceryListProps) => {
   };
 
   return (
-    <Card>
-      <CardContent>
-        <Typography variant="h6" gutterBottom>
-          Shopping List
+    <Box sx={{ p: 2 }}>
+      <Typography variant="h6" sx={{ fontWeight: 500, mb: 2 }}>
+        Shopping List
+      </Typography>
+
+      <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
+        <TextField
+          fullWidth
+          size="small"
+          placeholder="Add an item..."
+          value={newItem}
+          onChange={(e) => setNewItem(e.target.value)}
+          onKeyPress={handleKeyPress}
+        />
+        <IconButton
+          onClick={handleAddItem}
+          sx={{
+            bgcolor: "action.hover",
+            "&:hover": { bgcolor: "action.selected" },
+          }}
+        >
+          <AddIcon />
+        </IconButton>
+      </Box>
+
+      {items.length === 0 ? (
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{ textAlign: "center", py: 4 }}
+        >
+          Add items to your shopping list
         </Typography>
-        <Box sx={{ mb: 2, display: "flex", gap: 1 }}>
-          <TextField
-            fullWidth
-            size="small"
-            value={newItem}
-            onChange={(e) => setNewItem(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Add an item..."
-            variant="outlined"
-          />
-          <Button
-            variant="contained"
-            onClick={handleAddItem}
-            disabled={!newItem.trim()}
-            startIcon={<AddIcon />}
-          >
-            Add
-          </Button>
-        </Box>
-        <List>
-          {items.map((item) => (
-            <ListItem
-              key={item.id}
-              sx={{
-                bgcolor: "background.paper",
-                borderRadius: 1,
-                mb: 1,
-                "&:last-child": { mb: 0 },
-              }}
-            >
-              <ListItemText primary={item.name} />
-              <ListItemSecondaryAction>
-                <IconButton
-                  edge="end"
-                  aria-label="delete"
-                  onClick={() => onDeleteItem(item.id)}
-                  size="small"
-                >
-                  <DeleteIcon />
-                </IconButton>
-              </ListItemSecondaryAction>
-            </ListItem>
+      ) : (
+        <List sx={{ py: 0 }}>
+          {items.map((item, index) => (
+            <React.Fragment key={item.id}>
+              {index > 0 && <Divider />}
+              <ListItem
+                disableGutters
+                secondaryAction={
+                  <IconButton
+                    edge="end"
+                    aria-label="delete"
+                    onClick={() => onDeleteItem(item.id)}
+                    sx={{ color: "error.light" }}
+                  >
+                    <DeleteIcon />
+                  </IconButton>
+                }
+              >
+                <ListItemText
+                  primary={item.name}
+                  primaryTypographyProps={{
+                    sx: { fontWeight: 500 },
+                  }}
+                />
+              </ListItem>
+            </React.Fragment>
           ))}
         </List>
-        {items.length === 0 && (
-          <Typography color="text.secondary" align="center" sx={{ mt: 2 }}>
-            Add items to your shopping list
-          </Typography>
-        )}
-      </CardContent>
-    </Card>
+      )}
+    </Box>
   );
 };
 

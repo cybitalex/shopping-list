@@ -2,8 +2,10 @@ export interface Store {
   id: string;
   name: string;
   address: string;
-  distance: number;
-  rating?: number;
   latitude: number;
   longitude: number;
+  rating: number;
+  priceLevel: number;
+  isOpen: boolean;
+  distance: number;
 }

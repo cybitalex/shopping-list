@@ -1,238 +1,165 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Box,
   Typography,
-  CircularProgress,
-  Alert,
-  Button,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemSecondaryAction,
+  IconButton,
   Paper,
-  LinearProgress,
+  CircularProgress,
+  Tooltip,
+  Chip,
+  Divider,
 } from "@mui/material";
-import LocalOfferIcon from "@mui/icons-material/LocalOffer";
-import { compareStores } from "../services/api";
+import InfoIcon from "@mui/icons-material/Info";
+import type { Store } from "../types/store";
+import { searchProductsAtStores, Product } from "../services/products";
 
-interface Store {
-  id: string;
-  name: string;
-  address: string;
-  distance: number;
-  rating?: number;
-  latitude: number;
-  longitude: number;
-}
-
-interface ItemPrice {
-  name: string;
-  price: number;
-  confidence: number;
-}
-
-interface StoreResult {
-  storeName: string;
-  items: ItemPrice[];
-  totalPrice: number;
-}
-
-interface ComparisonResult {
-  results: StoreResult[];
-  errors?: string[];
-}
-
-interface Props {
+interface StoreComparisonProps {
   items: string[];
   stores: Store[];
   onError: (error: string) => void;
+  isLocatingStores: boolean;
+  onCheapestStore: (store: Store | null) => void;
 }
 
-const StoreComparison: React.FC<Props> = ({ items, stores, onError }) => {
-  const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState<StoreResult[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [progress, setProgress] = useState(0);
+interface StorePrices {
+  [storeId: string]: {
+    store: Store;
+    total: number;
+    products: Product[];
+  };
+}
 
-  const compareNearbyStores = async () => {
-    if (!stores.length) {
-      setError("No stores found nearby. Try expanding your search radius.");
-      return;
-    }
+const StoreComparison: React.FC<StoreComparisonProps> = ({
+  items,
+  stores,
+  onError,
+  isLocatingStores,
+  onCheapestStore,
+}) => {
+  const [storePrices, setStorePrices] = useState<StorePrices>({});
+  const [isLoading, setIsLoading] = useState(false);
 
-    if (!items.length) {
-      setError("Please add items to your list before comparing prices.");
-      return;
-    }
+  useEffect(() => {
+    const searchProductsForAllItems = async () => {
+      if (items.length === 0 || stores.length === 0) return;
 
-    setLoading(true);
-    setError(null);
-    setProgress(0);
+      setIsLoading(true);
+      const newStorePrices: StorePrices = {};
 
-    try {
-      // Calculate progress steps
-      const totalSteps = stores.length;
-      const progressIncrement = 100 / totalSteps;
+      // Initialize store prices
+      stores.forEach((store) => {
+        newStorePrices[store.id] = {
+          store,
+          total: 0,
+          products: [],
+        };
+      });
 
-      const response = await compareStores(stores, items);
-      setProgress(100);
+      // Search for each item at all stores
+      for (const item of items) {
+        try {
+          const products = await searchProductsAtStores(item, stores);
 
-      if (!response.results || !Array.isArray(response.results)) {
-        throw new Error("Invalid response format from server");
+          // Add products to store totals
+          products.forEach((product) => {
+            if (newStorePrices[product.storeId]) {
+              newStorePrices[product.storeId].total += product.price;
+              newStorePrices[product.storeId].products.push(product);
+            }
+          });
+        } catch (error) {
+          console.error(`Error searching for ${item}:`, error);
+          onError(`Failed to search for ${item}`);
+        }
       }
 
-      // Sort results by total price
-      const sortedResults = [...response.results].sort(
-        (a, b) => a.totalPrice - b.totalPrice
-      );
-      setResults(sortedResults);
+      setStorePrices(newStorePrices);
 
-      if (response.errors?.length) {
-        console.warn("Some price estimates failed:", response.errors);
-      }
-    } catch (error) {
-      console.error("Error comparing stores:", error);
-      setError("Failed to compare store prices. Please try again.");
-      onError("Failed to compare store prices");
-    } finally {
-      setLoading(false);
-    }
-  };
+      // Find and notify about the cheapest store
+      const cheapestStore =
+        Object.values(newStorePrices)
+          .filter((storeData) => storeData.products.length > 0)
+          .sort((a, b) => a.total - b.total)[0]?.store || null;
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(price);
-  };
+      onCheapestStore(cheapestStore);
+      setIsLoading(false);
+    };
 
-  const formatConfidence = (confidence: number) => {
-    return `${Math.round(confidence * 100)}%`;
-  };
+    searchProductsForAllItems();
+  }, [items, stores, onError, onCheapestStore]);
+
+  if (isLocatingStores || isLoading) {
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", p: 2 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (Object.keys(storePrices).length === 0) {
+    return (
+      <Box sx={{ p: 2 }}>
+        <Typography variant="body1" color="text.secondary">
+          No stores found. Try searching for stores in your area.
+        </Typography>
+      </Box>
+    );
+  }
+
+  const sortedStores = Object.values(storePrices)
+    .filter((storeData) => storeData.products.length > 0)
+    .sort((a, b) => a.total - b.total);
 
   return (
-    <Box sx={{ mt: 2 }}>
-      <Box sx={{ mb: 2, display: "flex", justifyContent: "center" }}>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={compareNearbyStores}
-          disabled={loading || !stores.length || !items.length}
-          startIcon={<LocalOfferIcon />}
-        >
-          {loading ? "Comparing Prices..." : "Compare Prices"}
-        </Button>
-      </Box>
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
-
-      {loading && (
-        <Box sx={{ width: "100%", mb: 3 }}>
-          <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
-            <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
-              Comparing prices across {stores.length} stores...
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {Math.round(progress)}%
-            </Typography>
-          </Box>
-          <LinearProgress
-            variant="determinate"
-            value={progress}
-            sx={{
-              height: 8,
-              borderRadius: 4,
-            }}
-          />
-        </Box>
-      )}
-
-      {!loading && !error && results.length > 0 && (
-        <Box>
-          <Typography variant="h6" gutterBottom>
-            Price Comparison Results
-          </Typography>
-
-          {results.map((result, index) => (
-            <Paper
-              key={index}
-              elevation={index === 0 ? 3 : 1}
-              sx={{
-                mb: 3,
-                p: 2,
-                borderRadius: 2,
-                position: "relative",
-                border: index === 0 ? "2px solid #4caf50" : "none",
-                bgcolor: index === 0 ? "success.light" : "background.paper",
-              }}
-            >
-              {index === 0 && (
-                <Box
-                  sx={{
-                    position: "absolute",
-                    top: -12,
-                    right: 16,
-                    bgcolor: "success.main",
-                    color: "white",
-                    px: 2,
-                    py: 0.5,
-                    borderRadius: 1,
-                    fontSize: "0.875rem",
-                    fontWeight: "bold",
-                  }}
-                >
-                  Best Price!
-                </Box>
-              )}
-              <Typography
-                variant="h6"
-                color={index === 0 ? "success.dark" : "primary"}
-                sx={{ fontWeight: "bold" }}
-              >
-                {result.storeName} - Total: {formatPrice(result.totalPrice)}
-              </Typography>
-
-              <Box sx={{ mt: 2 }}>
-                {result.items.map((item, itemIndex) => (
-                  <Box
-                    key={itemIndex}
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      mb: 1,
-                      p: 1,
-                      bgcolor: "background.paper",
-                      borderRadius: 1,
-                    }}
-                  >
-                    <Typography>{item.name}</Typography>
-                    <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
-                      <Typography sx={{ fontWeight: "medium" }}>
-                        {formatPrice(item.price)}
-                      </Typography>
-                      <Typography
-                        color="text.secondary"
-                        fontSize="small"
-                        sx={{ opacity: 0.8 }}
-                      >
-                        (Confidence: {formatConfidence(item.confidence)})
-                      </Typography>
-                    </Box>
+    <Box sx={{ p: 2 }}>
+      <Typography variant="h6" gutterBottom>
+        Store Comparison
+      </Typography>
+      <List>
+        {sortedStores.map((storeData, index) => (
+          <Box key={storeData.store.id}>
+            <ListItem>
+              <ListItemText
+                primary={
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <Typography variant="subtitle1">
+                      {storeData.store.name}
+                    </Typography>
+                    {index === 0 && (
+                      <Chip label="Cheapest" color="success" size="small" />
+                    )}
                   </Box>
-                ))}
-              </Box>
-            </Paper>
-          ))}
-        </Box>
-      )}
-
-      {!loading && !error && results.length === 0 && (
-        <Typography color="text.secondary" align="center">
-          Click "Compare Prices" to see price estimates for your items at nearby
-          stores.
-        </Typography>
-      )}
+                }
+                secondary={
+                  <>
+                    <Typography variant="body2" color="text.secondary">
+                      {storeData.store.address}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Total: ${storeData.total.toFixed(2)}
+                    </Typography>
+                    <List dense>
+                      {storeData.products.map((product) => (
+                        <ListItem key={`${product.storeId}-${product.name}`}>
+                          <ListItemText
+                            primary={product.name}
+                            secondary={`$${product.price.toFixed(2)}`}
+                          />
+                        </ListItem>
+                      ))}
+                    </List>
+                  </>
+                }
+              />
+            </ListItem>
+            {index < sortedStores.length - 1 && <Divider />}
+          </Box>
+        ))}
+      </List>
     </Box>
   );
 };
