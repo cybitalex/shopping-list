@@ -4,7 +4,8 @@
     "composite": true,
     "tsBuildInfoFile": "./tsconfig.app.tsbuildinfo",
     "module": "ESNext",
-    "types": ["vite/client"]
+    "types": ["vite/client"],
+    "noEmit": false
   },
   "include": ["src"]
 }

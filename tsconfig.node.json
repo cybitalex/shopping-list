@@ -5,7 +5,8 @@
     "tsBuildInfoFile": "./tsconfig.node.tsbuildinfo",
     "module": "ESNext",
     "moduleResolution": "Node",
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+    "noEmit": false
   },
   "include": ["vite.config.ts"]
 }
