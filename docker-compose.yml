@@ -5,6 +5,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        - NODE_ENV=production
+        - VITE_GOOGLE_MAPS_API_KEY=${VITE_GOOGLE_MAPS_API_KEY}
+        - VITE_GOOGLE_MAPS_ID=${VITE_GOOGLE_MAPS_ID}
+        - VITE_MAPBOX_TOKEN=${VITE_MAPBOX_TOKEN}
     container_name: shopping-list-frontend
     restart: unless-stopped
     networks:
@@ -14,14 +19,26 @@ services:
       - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
     ports:
-      - "80:80"
+      - "80:3000"
       - "443:443"
     depends_on:
       - backend
+    env_file:
+      - .env
     environment:
       - NODE_ENV=production
-      - VITE_GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
-    command: '/bin/sh -c ''while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g "daemon off;"'''
+      - PORT=3000
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ZENSERP_API_KEY=${ZENSERP_API_KEY}
+      - VITE_GOOGLE_MAPS_API_KEY=${VITE_GOOGLE_MAPS_API_KEY}
+      - VITE_GOOGLE_MAPS_ID=${VITE_GOOGLE_MAPS_ID}
+      - VITE_MAPBOX_TOKEN=${VITE_MAPBOX_TOKEN}
+      - MAPBOX_TOKEN=${MAPBOX_TOKEN}
+      - BROWSERBASE_API_KEY=${BROWSERBASE_API_KEY}
+      - ENABLE_PLAYWRIGHT=false
+      - ENABLE_AI_EXTRACTION=false
+      - USE_GOOGLE_SEARCH=false
 
   backend:
     build:
@@ -34,11 +51,22 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
+      - SERPAPI_KEY=${SERPAPI_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - MAPBOX_TOKEN=${MAPBOX_TOKEN}
+      - ZENSERP_API_KEY=${ZENSERP_API_KEY}
+      - ENABLE_PLAYWRIGHT=false
+      - ENABLE_AI_EXTRACTION=false
+      - USE_GOOGLE_SEARCH=false
+      - PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+      - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+      - CORS_ORIGIN=https://shopcheeply.duckdns.org
     volumes:
       - ./:/app
       - /app/node_modules
     ports:
-      - "3000:3000"
+      - "3001:3000"
 
   certbot:
     image: certbot/certbot
@@ -46,7 +74,8 @@ services:
     volumes:
       - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
-    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+      - ./certbot/logs:/var/log/letsencrypt
+    entrypoint: "/bin/sh -c 'if [ ! -f /etc/letsencrypt/live/*/fullchain.pem ]; then certbot certonly --webroot -w /var/www/certbot --force-renewal; fi; trap exit TERM; while :; do certbot renew --quiet; sleep 12h & wait $${!}; done;'"
 
 networks:
   app-network:

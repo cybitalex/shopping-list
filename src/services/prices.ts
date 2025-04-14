@@ -1,6 +1,6 @@
 import type { Store } from "../types/store";
 
-interface PriceEstimate {
+export interface PriceEstimate {
   storeId: string;
   itemName: string;
   price: number;
@@ -22,16 +22,14 @@ export const estimatePrices = async (
 
       for (const store of stores) {
         // Base price on store's price level and rating
-        const basePrice = 5 + store.priceLevel * 2; // Higher price level = more expensive
-        const ratingFactor = (5 - store.rating) * 0.5; // Lower rating = slightly lower prices
-        const distanceFactor = store.distance * 0.1; // Further stores might have slightly higher prices
+        const basePrice = 5 + (store.priceLevel || 1) * 2; // Higher price level = more expensive
+        const ratingFactor = ((store.rating || 3) - 5) * 0.5; // Lower rating = slightly lower prices
 
         // Add some randomness to make it more realistic
         const randomFactor = 0.8 + Math.random() * 0.4; // Random factor between 0.8 and 1.2
 
-        const estimatedPrice =
-          (basePrice + ratingFactor + distanceFactor) * randomFactor;
-        const confidence = 0.7 + store.rating / 10; // Higher rating = higher confidence
+        const estimatedPrice = (basePrice + ratingFactor) * randomFactor;
+        const confidence = 0.7 + (store.rating || 3) / 10; // Higher rating = higher confidence
 
         itemEstimates.push({
           storeId: store.id,

@@ -1,0 +1,66 @@
+version: "3.8"
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: shopping-list-frontend-dev
+    restart: unless-stopped
+    networks:
+      - app-network
+    volumes:
+      - ./nginx.dev.conf:/etc/nginx/conf.d/default.conf
+      - .:/app
+      - /app/node_modules
+    ports:
+      - "80:80"
+      - "3000:3000"
+    depends_on:
+      - backend
+    environment:
+      - NODE_ENV=development
+      - VITE_GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
+      - VITE_GOOGLE_MAPS_ID=${VITE_GOOGLE_MAPS_ID}
+      - VITE_MAPBOX_TOKEN=${MAPBOX_TOKEN}
+      - VITE_BACKEND_URL=http://localhost:3000
+      - PORT=3000
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ZENSERP_API_KEY=${ZENSERP_API_KEY}
+      - BROWSERBASE_API_KEY=${BROWSERBASE_API_KEY}
+      - MAPBOX_TOKEN=${MAPBOX_TOKEN}
+      # Feature flags - all disabled to only use Zenserp
+      - ENABLE_PLAYWRIGHT=false
+      - ENABLE_AI_EXTRACTION=false
+      - USE_GOOGLE_SEARCH=false
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: shopping-list-backend-dev
+    restart: unless-stopped
+    networks:
+      - app-network
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
+      - SERPAPI_KEY=${SERPAPI_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - MAPBOX_TOKEN=${MAPBOX_TOKEN}
+      - ZENSERP_API_KEY=${ZENSERP_API_KEY}
+      - ENABLE_PLAYWRIGHT=false
+      - ENABLE_AI_EXTRACTION=false
+      - USE_GOOGLE_SEARCH=false
+    volumes:
+      - ./:/app
+      - /app/node_modules
+      - ./screenshots:/app/screenshots
+    ports:
+      - "3000:3000"
+
+networks:
+  app-network:
+    driver: bridge 

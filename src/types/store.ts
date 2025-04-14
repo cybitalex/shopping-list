@@ -4,6 +4,7 @@ export interface Store {
   address: string;
   latitude: number;
   longitude: number;
-  rating: number;
-  priceLevel: number;
+  distance: number; // in miles
+  rating?: number;
+  priceLevel?: number;
 }

@@ -2,8 +2,16 @@ import axios from "axios";
 import type { Store } from "../types/store";
 import type { ScrapingResult } from "../utils/scraper";
 
-const API_BASE_URL =
-  import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
+const API_BASE_URL = window.location.origin.includes('localhost') 
+  ? 'http://localhost:3000' 
+  : window.location.origin;
+
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
 
 export interface ItemPrice {
   name: string;
@@ -27,7 +35,7 @@ export const findNearbyStores = async (
   longitude: number
 ): Promise<Store[]> => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/api/stores`, {
+    const response = await api.get(`/api/stores`, {
       params: { latitude, longitude },
     });
     return response.data;
@@ -42,7 +50,7 @@ export const compareStores = async (
   items: string[]
 ): Promise<ComparisonResponse> => {
   try {
-    const response = await axios.post(`${API_BASE_URL}/api/compare`, {
+    const response = await api.post('/api/compare', {
       stores,
       items,
     });
@@ -76,3 +84,23 @@ function calculateDistance(
 function deg2rad(deg: number): number {
   return deg * (Math.PI / 180);
 }
+
+export const searchProducts = async (query: string) => {
+  try {
+    const response = await api.get(`/api/search?q=${encodeURIComponent(query)}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error searching products:', error);
+    throw error;
+  }
+};
+
+export const fetchPrice = async (item: string, store: string) => {
+  try {
+    const response = await api.get(`/api/fetch-price?item=${encodeURIComponent(item)}&store=${encodeURIComponent(store)}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching price for ${item} at ${store}:`, error);
+    throw error;
+  }
+};

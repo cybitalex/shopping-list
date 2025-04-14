@@ -1,18 +1,38 @@
-FROM node:18-alpine
+FROM node:20-alpine
 
+# Install dependencies for Playwright
+RUN apk add --no-cache \
+    chromium \
+    nss \
+    freetype \
+    freetype-dev \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont \
+    nodejs \
+    yarn
+
+# Set environment variables for Playwright
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
+# Create app directory
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 
 # Install dependencies
-RUN npm install
+RUN npm install --legacy-peer-deps
 
-# Copy source code
+# Install Playwright browsers
+RUN npx playwright install chromium
+
+# Copy app source
 COPY . .
 
 # Expose port
 EXPOSE 3000
 
-# Start the server
+# Start app
 CMD ["npm", "start"] 

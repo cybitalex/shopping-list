@@ -1,20 +1,31 @@
-import React, { useEffect, useCallback, useRef, useState } from "react";
-import { GoogleMap, useJsApiLoader } from "@react-google-maps/api";
-import {
-  Box,
-  CircularProgress,
-  Paper,
-  IconButton,
-  useMediaQuery,
-  useTheme,
-  TextField,
-  InputAdornment,
-} from "@mui/material";
-import MenuIcon from "@mui/icons-material/Menu";
-import SearchIcon from "@mui/icons-material/Search";
+import React, { useEffect, useRef, useState } from "react";
+import { Box, CircularProgress, useMediaQuery, useTheme, keyframes, Typography, Alert } from "@mui/material";
 import type { Store } from "../types/store";
-import { alpha } from "@mui/material/styles";
-import { getGoogleMapsService, getPlacesService } from "../utils/googleMaps";
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
+
+// Define the pulse animation for CSS
+const pulseAnimation = keyframes`
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(15, 157, 88, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 10px rgba(15, 157, 88, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(15, 157, 88, 0);
+  }
+`;
+
+// Get the token from environment variables
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
+// Set Mapbox token
+mapboxgl.accessToken = MAPBOX_TOKEN || '';
+
+console.log("Mapbox token available:", !!MAPBOX_TOKEN);
 
 interface MapProps {
   currentLocation: { lat: number; lng: number } | null;
@@ -29,18 +40,6 @@ interface MapProps {
   ) => void;
 }
 
-interface MarkerInstance extends google.maps.marker.AdvancedMarkerElement {
-  setMap(map: google.maps.Map | null): void;
-}
-
-const containerStyle = {
-  width: "100%",
-  height: "100%",
-  borderRadius: "8px",
-};
-
-const libraries: ("marker" | "places")[] = ["marker", "places"];
-
 const Map: React.FC<MapProps> = ({
   currentLocation,
   stores,
@@ -51,144 +50,243 @@ const Map: React.FC<MapProps> = ({
   onSearchStores,
 }) => {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-  const { isLoaded } = useJsApiLoader({
-    id: "google-map-script",
-    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
-    libraries,
-  });
-
-  const [isDrawerOpen, setIsDrawerOpen] = React.useState(false);
-  const [newItem, setNewItem] = React.useState("");
-  const [searchQuery, setSearchQuery] = React.useState("");
-  const mapRef = React.useRef<HTMLDivElement>(null);
-  const [map, setMap] = useState<google.maps.Map | null>(null);
-  const [markers, setMarkers] = useState<google.maps.Marker[]>([]);
-  const searchTimeoutRef = useRef<number | null>(null);
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstance = useRef<mapboxgl.Map | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const markers = useRef<mapboxgl.Marker[]>([]);
+  const cheapestMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const popups = useRef<{[id: string]: mapboxgl.Popup}>({});
 
-  const handleSearch = useCallback(() => {
-    if (!currentLocation || !searchQuery.trim()) return;
-
-    if (searchTimeoutRef.current) {
-      window.clearTimeout(searchTimeoutRef.current);
-    }
-
-    searchTimeoutRef.current = window.setTimeout(() => {
-      onSearchStores?.(searchQuery.trim(), currentLocation);
-    }, 500);
-
-    return () => {
-      if (searchTimeoutRef.current) {
-        window.clearTimeout(searchTimeoutRef.current);
+  // Initialize map when component mounts and currentLocation is available
+  useEffect(() => {
+    if (!mapRef.current || !currentLocation) {
+      if (!currentLocation) {
+        console.log("No current location available yet");
       }
-    };
-  }, [currentLocation, searchQuery, onSearchStores]);
-
-  useEffect(() => {
-    handleSearch();
-  }, [handleSearch]);
-
-  const handleAddItem = () => {
-    if (newItem.trim()) {
-      onAddItem?.(newItem.trim());
-      setNewItem("");
+      return;
     }
-  };
-
-  useEffect(() => {
-    if (!mapRef.current || !currentLocation) return;
-
-    const initMap = async () => {
-      try {
-        const googleMaps = getGoogleMapsService();
-        const newMap = new googleMaps.Map(mapRef.current!, {
-          center: currentLocation,
-          zoom: 13,
-          mapId: "YOUR_MAP_ID", // Replace with your actual Map ID
-          disableDefaultUI: false,
-          zoomControl: true,
-          mapTypeControl: false,
-          streetViewControl: false,
-          fullscreenControl: true,
-        });
-
-        setMap(newMap);
-        setIsLoading(false);
-      } catch (error) {
-        console.error("Error initializing map:", error);
-        setIsLoading(false);
-      }
-    };
-
-    initMap();
-  }, [currentLocation]);
-
-  useEffect(() => {
-    if (!map || !currentLocation) return;
-
-    // Clear existing markers
-    markers.forEach((marker) => marker.setMap(null));
-    setMarkers([]);
-
-    const googleMaps = getGoogleMapsService();
-
-    // Add current location marker
-    const currentLocationMarker = new googleMaps.Marker({
-      position: currentLocation,
-      map,
-      title: "Your Location",
-      icon: {
-        path: googleMaps.SymbolPath.CIRCLE,
-        scale: 10,
-        fillColor: "#4285F4",
-        fillOpacity: 1,
-        strokeWeight: 2,
-        strokeColor: "#FFFFFF",
-      },
-    });
-
-    // Add store markers
-    const storeMarkers = stores.map((store) => {
-      const marker = new googleMaps.Marker({
-        position: { lat: store.latitude, lng: store.longitude },
-        map,
-        title: store.name,
-        icon: {
-          path: googleMaps.SymbolPath.CIRCLE,
-          scale: 8,
-          fillColor: store.id === selectedStore?.id ? "#0F9D58" : "#DB4437",
-          fillOpacity: 1,
-          strokeWeight: 2,
-          strokeColor: "#FFFFFF",
-        },
+    
+    if (!MAPBOX_TOKEN) {
+      setError("Mapbox API key is missing. Map cannot be displayed.");
+      setIsLoading(false);
+      return;
+    }
+    
+    console.log("Initializing map with location:", currentLocation);
+    
+    try {
+      // Create the map instance
+      const map = new mapboxgl.Map({
+        container: mapRef.current,
+        style: 'mapbox://styles/mapbox/streets-v11',
+        center: [currentLocation.lng, currentLocation.lat],
+        zoom: 11
       });
-
-      marker.addListener("click", () => {
+      
+      // Save map instance to ref
+      mapInstance.current = map;
+      
+      // Add navigation controls
+      map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+      
+      // Add current location marker when map loads
+      map.on('load', () => {
+        console.log("Map loaded successfully");
+        
+        // Create a DOM element for the current location marker
+        const el = document.createElement('div');
+        el.className = 'current-location-marker';
+        el.style.backgroundColor = '#4285F4';
+        el.style.width = '20px';
+        el.style.height = '20px';
+        el.style.borderRadius = '50%';
+        el.style.border = '3px solid white';
+        el.style.boxShadow = '0 0 5px rgba(0,0,0,0.3)';
+        
+        // Add the current location marker
+        new mapboxgl.Marker(el)
+          .setLngLat([currentLocation.lng, currentLocation.lat])
+          .setPopup(new mapboxgl.Popup().setHTML('<strong>Your Location</strong>'))
+          .addTo(map);
+        
+        setIsLoading(false);
+      });
+      
+      // Handle any map errors
+      map.on('error', (e) => {
+        console.error("Mapbox error:", e);
+        setError("An error occurred while loading the map. Please try again later.");
+        setIsLoading(false);
+      });
+    } catch (err) {
+      console.error("Error initializing map:", err);
+      setError(`Failed to initialize map: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      setIsLoading(false);
+    }
+    
+    // Cleanup on component unmount
+    return () => {
+      if (mapInstance.current) {
+        mapInstance.current.remove();
+        mapInstance.current = null;
+      }
+    };
+  }, [currentLocation]);
+  
+  // Update store markers when stores or cheapest store changes
+  useEffect(() => {
+    const map = mapInstance.current;
+    if (!map || !stores.length) return;
+    
+    // Clear previous markers
+    markers.current.forEach(marker => marker.remove());
+    markers.current = [];
+    
+    // Clear previous popups
+    Object.values(popups.current).forEach(popup => popup.remove());
+    popups.current = {};
+    
+    // Coordinates for bounding box calculation
+    const coordinates: [number, number][] = [];
+    
+    // Add current location to coordinates if available
+    if (currentLocation) {
+      coordinates.push([currentLocation.lng, currentLocation.lat]);
+    }
+    
+    // Add store markers
+    stores.forEach(store => {
+      const isCheapest = cheapestStore?.id === store.id;
+      const isSelected = selectedStore?.id === store.id;
+      
+      // Create a DOM element for the marker
+      const el = document.createElement('div');
+      el.className = 'store-marker';
+      el.style.width = isCheapest ? '22px' : '18px';
+      el.style.height = isCheapest ? '22px' : '18px';
+      el.style.backgroundColor = isCheapest ? '#0F9D58' : isSelected ? '#FFC107' : '#DB4437';
+      el.style.borderRadius = '50%';
+      el.style.border = '2px solid white';
+      el.style.boxShadow = '0 0 5px rgba(0,0,0,0.3)';
+      
+      // Add pulsing animation for cheapest store
+      if (isCheapest) {
+        el.style.animation = 'pulse 1.5s infinite';
+        
+        // Add keyframes for pulse animation
+        const styleSheet = document.createElement('style');
+        styleSheet.textContent = `
+          @keyframes pulse {
+            0% {
+              box-shadow: 0 0 0 0 rgba(15, 157, 88, 0.7);
+            }
+            70% {
+              box-shadow: 0 0 0 10px rgba(15, 157, 88, 0);
+            }
+            100% {
+              box-shadow: 0 0 0 0 rgba(15, 157, 88, 0);
+            }
+          }
+        `;
+        document.head.appendChild(styleSheet);
+      }
+      
+      // Create popup content
+      const popupHtml = `
+        <strong>${store.name}</strong><br>
+        ${store.address}<br>
+        <em>${store.distance.toFixed(1)} miles away</em>
+        ${isCheapest ? '<br><strong style="color:#0F9D58">Cheapest Store!</strong>' : ''}
+      `;
+      
+      // Create the popup
+      const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(popupHtml);
+      popups.current[store.id] = popup;
+      
+      // Create the marker
+      const marker = new mapboxgl.Marker(el)
+        .setLngLat([store.longitude, store.latitude])
+        .setPopup(popup)
+        .addTo(map);
+      
+      // Add click event to marker
+      el.addEventListener('click', () => {
         onStoreSelect(store);
       });
-
-      return marker;
+      
+      // Save reference to marker
+      markers.current.push(marker);
+      
+      // Save reference to cheapest marker
+      if (isCheapest) {
+        cheapestMarkerRef.current = marker;
+      }
+      
+      // Add coordinates for bounding box
+      coordinates.push([store.longitude, store.latitude]);
     });
+    
+    // Fit map to include all markers
+    if (coordinates.length > 0) {
+      const bounds = coordinates.reduce((bounds, coord) => {
+        return bounds.extend(coord);
+      }, new mapboxgl.LngLatBounds(coordinates[0], coordinates[0]));
+      
+      map.fitBounds(bounds, {
+        padding: 50,
+        maxZoom: 14
+      });
+      
+      // If there's a cheapest store, zoom to it after a delay
+      if (cheapestStore && cheapestMarkerRef.current) {
+        setTimeout(() => {
+          map.flyTo({
+            center: [cheapestStore.longitude, cheapestStore.latitude],
+            zoom: 15,
+            duration: 1000
+          });
+          cheapestMarkerRef.current?.togglePopup();
+        }, 1000);
+      }
+    }
+  }, [stores, cheapestStore, selectedStore, currentLocation, onStoreSelect]);
 
-    setMarkers([currentLocationMarker, ...storeMarkers]);
-
-    // Cleanup function
-    return () => {
-      markers.forEach((marker) => marker.setMap(null));
-    };
-  }, [map, currentLocation, stores, selectedStore, onStoreSelect]);
+  if (error) {
+    return (
+      <Box 
+        sx={{ 
+          display: 'flex', 
+          flexDirection: 'column',
+          justifyContent: 'center', 
+          alignItems: 'center',
+          height: '400px',
+          bgcolor: 'background.paper',
+          borderRadius: '8px',
+          p: 3
+        }}
+      >
+        <Alert severity="error" sx={{ mb: 2, width: '100%' }}>
+          {error}
+        </Alert>
+        <Typography variant="body2" color="text.secondary">
+          Please check your API key in the .env file and make sure it's correctly configured.
+        </Typography>
+      </Box>
+    );
+  }
 
   if (isLoading) {
     return (
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          height: "400px",
-          borderRadius: 2,
-          bgcolor: "background.paper",
+      <Box 
+        sx={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center',
+          height: '400px',
+          bgcolor: 'background.paper',
+          borderRadius: '8px'
         }}
       >
         <CircularProgress />
@@ -197,70 +295,16 @@ const Map: React.FC<MapProps> = ({
   }
 
   return (
-    <Box sx={{ height: "100%", position: "relative" }}>
-      <Paper
-        elevation={0}
-        sx={{
-          height: "100%",
-          overflow: "hidden",
-          borderRadius: 2,
-        }}
-      >
-        {isMobile && (
-          <IconButton
-            onClick={() => setIsDrawerOpen(true)}
-            sx={{
-              position: "absolute",
-              top: 8,
-              left: 8,
-              zIndex: 1,
-              bgcolor: alpha(theme.palette.background.paper, 0.8),
-            }}
-          >
-            <MenuIcon />
-          </IconButton>
-        )}
-        <Box
-          ref={mapRef}
-          sx={{
-            width: "100%",
-            height: "400px",
-            borderRadius: 2,
-            overflow: "hidden",
-          }}
-        />
-        <Box
-          sx={{
-            position: "absolute",
-            top: 8,
-            right: 8,
-            zIndex: 1,
-            display: "flex",
-            gap: 1,
-          }}
-        >
-          <TextField
-            size="small"
-            placeholder="Search stores..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-            }}
-            sx={{
-              bgcolor: alpha(theme.palette.background.paper, 0.8),
-              "& .MuiOutlinedInput-root": {
-                borderRadius: 2,
-              },
-            }}
-          />
-        </Box>
-      </Paper>
-    </Box>
+    <Box 
+      ref={mapRef} 
+      sx={{ 
+        width: '100%', 
+        height: '400px',
+        borderRadius: '8px',
+        overflow: 'hidden',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+      }}
+    />
   );
 };
 

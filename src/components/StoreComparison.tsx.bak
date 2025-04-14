@@ -1,0 +1,620 @@
+import React, { useEffect, useState, useMemo, useRef } from "react";
+import {
+  Box,
+  Typography,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemSecondaryAction,
+  IconButton,
+  Paper,
+  CircularProgress,
+  Tooltip,
+  Chip,
+  Divider,
+  Skeleton,
+  Card,
+  CardContent,
+  Grid,
+  Link,
+  Container,
+  Button
+} from "@mui/material";
+import InfoIcon from "@mui/icons-material/Info";
+import type { Store } from "../types/store";
+import { searchProductsAtStores, type Product } from "../services/products";
+import StarIcon from "@mui/icons-material/Star";
+
+interface StoreComparisonProps {
+  items: string[];
+  stores: Store[];
+  onError: (message: string) => void;
+  isLocatingStores: boolean;
+  onCheapestStore: (store: Store | null) => void;
+}
+
+interface PriceResult {
+  price: number;
+  productName: string;
+  source: string;
+  store: string;
+  url: string;
+  isEstimate?: boolean;
+}
+
+interface FetchPriceOnDemandProps {
+  item: string;
+  store: string;
+  onPriceReceived: (result: PriceResult | null) => void;
+}
+
+// Global request queue to limit concurrent API calls
+const priceRequestQueue: Array<{
+  item: string;
+  store: string;
+  callback: (result: PriceResult | null) => void;
+}> = [];
+let isProcessingQueue = false;
+
+// Process the queue one at a time
+const processQueue = async () => {
+  if (isProcessingQueue || priceRequestQueue.length === 0) return;
+  
+  isProcessingQueue = true;
+  
+  // Take the first request from the queue
+  const request = priceRequestQueue.shift();
+  if (!request) {
+    isProcessingQueue = false;
+    return;
+  }
+  
+  try {
+    console.log(`Processing queued request for ${request.item} at ${request.store}`);
+    const response = await fetch(`/api/fetch-price?item=${encodeURIComponent(request.item)}&store=${encodeURIComponent(request.store)}&fallback=true`);
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (data.success && data.price !== null) {
+        request.callback(data);
+      } else {
+        request.callback(null);
+      }
+    } else {
+      request.callback(null);
+    }
+  } catch (error) {
+    console.error(`Error in queued fetch for ${request.item} at ${request.store}:`, error);
+    request.callback(null);
+  } finally {
+    isProcessingQueue = false;
+    
+    // Continue processing the queue after a short delay
+    setTimeout(() => {
+      processQueue();
+    }, 100);
+  }
+};
+
+const FetchPriceOnDemand: React.FC<FetchPriceOnDemandProps> = ({ item, store, onPriceReceived }) => {
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+  const [retries, setRetries] = useState(0);
+  const requestId = useRef(`${item}-${store}-${Math.random()}`);
+  
+  useEffect(() => {
+    const fetchPrice = () => {
+      setIsLoading(true);
+      setHasError(false);
+      
+      console.log(`Queueing price fetch for ${item} at ${store}`);
+      
+      // Add to queue instead of fetching directly
+      priceRequestQueue.push({
+        item,
+        store,
+        callback: (result) => {
+          if (result) {
+            onPriceReceived(result);
+          } else {
+            setHasError(true);
+            onPriceReceived(null);
+          }
+          setIsLoading(false);
+        }
+      });
+      
+      // Start processing queue if not already running
+      if (!isProcessingQueue) {
+        processQueue();
+      }
+    };
+    
+    // Only fetch 3 times max
+    if (retries < 3) {
+      fetchPrice();
+    }
+    
+    return () => {
+      // No cleanup needed - the queue handles everything
+    };
+  }, [item, store, retries, onPriceReceived]);
+
+  if (isLoading) {
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+        <CircularProgress size={16} />
+        <Typography variant="body2" color="text.secondary">
+          Fetching price...
+        </Typography>
+      </Box>
+    );
+  }
+
+  if (hasError) {
+    return (
+      <Box>
+        <Typography variant="body2" color="text.disabled">
+          Price not available
+        </Typography>
+        <Button 
+          variant="text" 
+          size="small" 
+          color="primary" 
+          onClick={() => setRetries(prev => prev + 1)}
+          disabled={retries >= 3}
+          sx={{ mt: 0.5, p: 0, minWidth: 'auto', fontSize: '0.75rem' }}
+        >
+          Retry
+        </Button>
+      </Box>
+    );
+  }
+
+  return null;
+};
+
+const StoreComparison: React.FC<StoreComparisonProps> = ({
+  items,
+  stores,
+  onError,
+  isLocatingStores,
+  onCheapestStore,
+}) => {
+  const [storeProducts, setStoreProducts] = useState<{ [key: string]: Product[] }>(
+    {}
+  );
+  const [isLoading, setIsLoading] = useState(false);
+  const [prices, setPrices] = useState<Record<string, Record<string, PriceResult>>>({});
+  const [cheapestItemStores, setCheapestItemStores] = useState<Record<string, string[]>>({});
+  // Add pending requests tracking to prevent duplicate requests
+  const [pendingRequests, setPendingRequests] = useState<Set<string>>(new Set());
+  
+  // Compute store totals and cheapest store once
+  const { storeTotals, cheapestStore, cheapestStoreIds } = useMemo(() => {
+    if (items.length === 0 || stores.length === 0) {
+      return { storeTotals: {}, cheapestStore: null, cheapestStoreIds: [] };
+    }
+    
+    // Calculate total for each store based on actual price data
+    const totals: Record<string, number> = {};
+    const storeHasAllItems: Record<string, boolean> = {};
+    
+    for (const store of stores) {
+      let total = 0;
+      let hasAllItems = true;
+      
+      for (const item of items) {
+        const price = prices[item]?.[store.name]?.price;
+        if (typeof price === 'number') {
+          total += price;
+        } else {
+          hasAllItems = false;
+        }
+      }
+      
+      totals[store.id] = total;
+      storeHasAllItems[store.id] = hasAllItems;
+    }
+    
+    // Find cheapest store(s)
+    let lowestTotal = Infinity;
+    let cheapestStoreList: string[] = [];
+    let cheapestStoreObj: Store | null = null;
+    
+    for (const store of stores) {
+      const total = totals[store.id];
+      const hasAllItems = storeHasAllItems[store.id];
+      
+      // Only consider as cheapest if it has all items and total > 0
+      if (hasAllItems && total > 0) {
+        if (total < lowestTotal) {
+          lowestTotal = total;
+          cheapestStoreList = [store.id];
+          cheapestStoreObj = store;
+        } else if (total === lowestTotal) {
+          cheapestStoreList.push(store.id);
+        }
+      }
+    }
+    
+    return { 
+      storeTotals: totals, 
+      cheapestStore: cheapestStoreObj, 
+      cheapestStoreIds: cheapestStoreList 
+    };
+  }, [prices, stores, items]);
+  
+  // Update cheapest store when it changes
+  useEffect(() => {
+    onCheapestStore(cheapestStore);
+  }, [cheapestStore, onCheapestStore]);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      if (items.length === 0 || stores.length === 0) {
+        setStoreProducts({});
+        return;
+      }
+
+      setIsLoading(true);
+      try {
+        const productsResult: { [key: string]: Product[] } = {};
+        
+        // Fetch all products in parallel
+        const productPromises = items.map(item => searchProductsAtStores(item, stores));
+        const productsForAllItems = await Promise.all(productPromises);
+        
+        // Combine all products into store groups
+        productsForAllItems.forEach(products => {
+          products.forEach((product) => {
+            if (!productsResult[product.storeId]) {
+              productsResult[product.storeId] = [];
+            }
+            productsResult[product.storeId].push(product);
+          });
+        });
+
+        setStoreProducts(productsResult);
+      } catch (err) {
+        console.error("Error fetching products:", err);
+        onError(err instanceof Error ? err.message : "Failed to fetch products");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, [items, stores, onError]);
+
+  // Find the cheapest store for each item and update cheapestItemStores state
+  useEffect(() => {
+    const findCheapestStoresForItems = () => {
+      const cheapestStores: Record<string, string[]> = {};
+      
+      // Process each item
+      for (const item of items) {
+        if (!prices[item]) continue;
+        
+        // Find the cheapest price for this item
+        let cheapestPrice = Infinity;
+        let cheapestStoresList: string[] = [];
+        
+        for (const [storeName, priceData] of Object.entries(prices[item])) {
+          if (!priceData || priceData.price === undefined) continue;
+          
+          if (priceData.price < cheapestPrice) {
+            cheapestPrice = priceData.price;
+            cheapestStoresList = [storeName];
+          } else if (priceData.price === cheapestPrice) {
+            cheapestStoresList.push(storeName);
+          }
+        }
+        
+        if (cheapestStoresList.length > 0) {
+          cheapestStores[item] = cheapestStoresList;
+        }
+      }
+      
+      setCheapestItemStores(cheapestStores);
+    };
+    
+    if (Object.keys(prices).length > 0) {
+      findCheapestStoresForItems();
+    }
+  }, [prices, items]);
+
+  // Calculate total for a specific store
+  const getTotalForStore = (store: string): number => {
+    // Use actual prices from the price state data
+    return items.reduce((total, item) => {
+      // Make sure we're getting a number for each price, using 0 as fallback
+      const price = prices[item]?.[store]?.price;
+      // Only add if it's actually a number - check explicitly to avoid NaN
+      return total + (typeof price === 'number' ? price : 0);
+    }, 0);
+  };
+
+  // Improved batch fetch with better request management and debouncing
+  useEffect(() => {
+    // Skip if there are no items or stores
+    if (items.length === 0 || stores.length === 0) return;
+    
+    const batchFetchPrices = async () => {
+      setIsLoading(true);
+      
+      // Create new prices object preserving existing prices
+      const newPrices = { ...prices };
+      
+      // Initialize structure for all items
+      items.forEach(item => {
+        if (!newPrices[item]) {
+          newPrices[item] = {};
+        }
+      });
+      
+      // Create a queue of requests to control concurrency
+      const requests: Array<{ item: string, store: Store }> = [];
+      const newPendingRequests = new Set(pendingRequests);
+      
+      // Build request queue
+      stores.forEach(store => {
+        items.forEach(item => {
+          const requestKey = `${item}-${store.name}`;
+          // Only fetch if we don't have a price and it's not already being fetched
+          if (!newPrices[item][store.name] && !newPendingRequests.has(requestKey)) {
+            requests.push({ item, store });
+            newPendingRequests.add(requestKey);
+          }
+        });
+      });
+      
+      // Update pending requests
+      setPendingRequests(newPendingRequests);
+      
+      // Process in smaller batches of 2 to avoid overwhelming the server
+      for (let i = 0; i < requests.length; i += 2) {
+        const batch = requests.slice(i, i + 2);
+        await Promise.all(batch.map(async ({ item, store }) => {
+          const requestKey = `${item}-${store.name}`;
+          try {
+            // Use fallback=true to get immediate estimates
+            const response = await fetch(`/api/fetch-price?item=${encodeURIComponent(item)}&store=${encodeURIComponent(store.name)}&fallback=true`);
+            
+            if (response.ok) {
+              const data = await response.json();
+              
+              if (data.success && data.price !== null) {
+                newPrices[item][store.name] = data;
+              }
+            }
+          } catch (error) {
+            console.error(`Error fetching price for ${item} at ${store.name}:`, error);
+          } finally {
+            // Remove from pending requests when done
+            setPendingRequests(prev => {
+              const updated = new Set(prev);
+              updated.delete(requestKey);
+              return updated;
+            });
+          }
+        }));
+        
+        // Small delay between batches
+        if (i + 2 < requests.length) {
+          await new Promise(r => setTimeout(r, 100));
+        }
+      }
+      
+      // Update prices state
+      setPrices(newPrices);
+      setIsLoading(false);
+    };
+    
+    // Use a short delay for the batch fetch
+    const timeoutId = setTimeout(() => {
+      batchFetchPrices();
+    }, 300);
+    
+    return () => clearTimeout(timeoutId);
+  }, [items, stores, prices, pendingRequests]);
+
+  if (isLocatingStores) {
+    return (
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          p: 3,
+          height: "100%",
+        }}
+      >
+        <Box sx={{ textAlign: "center" }}>
+          <CircularProgress sx={{ mb: 2 }} />
+          <Typography variant="body2" color="text.secondary">
+            Finding stores near you...
+          </Typography>
+        </Box>
+      </Box>
+    );
+  }
+
+  if (stores.length === 0) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Typography variant="body1" align="center" color="text.secondary">
+          No stores found nearby. Try changing your location.
+        </Typography>
+      </Box>
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Typography variant="body1" align="center" color="text.secondary">
+          Add items to your shopping list to compare prices across stores.
+        </Typography>
+      </Box>
+    );
+  }
+
+  return (
+    <Container maxWidth="xl">
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="body2" color="text.secondary">
+          {isLoading ? "Fetching prices..." : `Comparing ${items.length} items across ${stores.length} stores`}
+        </Typography>
+      </Box>
+      
+      <Grid container spacing={2} sx={{ mt: 0 }}>
+        {stores.map((store) => {
+          const products = storeProducts[store.id] || [];
+          const total = getTotalForStore(store.name);
+          const isCheapest = cheapestStoreIds.includes(store.id);
+
+          return (
+            <Grid item xs={12} sm={6} md={4} lg={3} xl={2} key={store.id}>
+              <Card sx={{ height: '100%', minHeight: '300px' }}>
+                <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                    <Typography variant="h6" sx={{ fontSize: { xs: '0.9rem', sm: '1rem', md: '1.1rem' }, mr: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {store.name}
+                    </Typography>
+                    {isCheapest && (
+                      <Chip
+                        label="Cheapest"
+                        size="small"
+                        color="success"
+                        sx={{ minWidth: 60, height: 20, fontSize: '0.65rem' }}
+                      />
+                    )}
+                  </Box>
+                  <Typography 
+                    variant="body2" 
+                    color="text.secondary" 
+                    sx={{ 
+                      mb: 1.5, 
+                      fontSize: '0.75rem',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                      height: '32px'
+                    }}
+                  >
+                    {store.address}
+                  </Typography>
+                  <Box sx={{ maxHeight: { xs: '200px', sm: '250px', md: '300px' }, overflow: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                    {items.map((item, index) => {
+                      const priceData = prices[item]?.[store.name];
+                      const isItemCheapest = cheapestItemStores[item]?.includes(store.name);
+                      
+                      return (
+                        <Box
+                          key={index}
+                          sx={{
+                            py: 1,
+                            borderBottom: index < items.length - 1 ? 1 : 0,
+                            borderColor: 'divider'
+                          }}
+                        >
+                          <Typography variant="subtitle2">
+                            {item}
+                          </Typography>
+                          {priceData ? (
+                            <Box>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Typography variant="body1" color="primary" fontWeight="bold">
+                                  ${priceData.price.toFixed(2)}
+                                </Typography>
+                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, ml: 0.5 }}>
+                                  <Tooltip title={priceData.source === 'serpapi' ? 
+                                    "Verified price from online sources" : 
+                                    "Estimated price based on market data"}>
+                                    <Chip 
+                                      label={priceData.source === 'serpapi' ? "Verified" : "Estimated"} 
+                                      size="small" 
+                                      color={priceData.source === 'serpapi' ? "success" : "warning"}
+                                      sx={{ height: 20, fontSize: '0.7rem' }}
+                                    />
+                                  </Tooltip>
+                                  {isItemCheapest && (
+                                    <Tooltip title={`This store has the lowest price for ${item} among all stores`}>
+                                      <Chip
+                                        label="Best Price"
+                                        size="small"
+                                        color="primary"
+                                        icon={<StarIcon sx={{ fontSize: '0.8rem' }} />}
+                                        sx={{ 
+                                          height: 20, 
+                                          fontSize: '0.7rem',
+                                          fontWeight: 'bold',
+                                          bgcolor: theme => theme.palette.primary.main,
+                                          color: 'white',
+                                          '& .MuiChip-icon': { 
+                                            color: 'inherit',
+                                            marginLeft: '2px',
+                                            marginRight: '-4px',
+                                          }
+                                        }}
+                                      />
+                                    </Tooltip>
+                                  )}
+                                </Box>
+                              </Box>
+
+                              {/* Display the actual product title found */}
+                              <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem', mt: 0.5 }}>
+                                {priceData.productName}
+                              </Typography>
+                            </Box>
+                          ) : (
+                            // Try to fetch a price in real-time if not available
+                            <FetchPriceOnDemand 
+                              item={item} 
+                              store={store.name} 
+                              onPriceReceived={(result) => {
+                                if (result) {
+                                  const newPrices = {...prices};
+                                  if (!newPrices[item]) {
+                                    newPrices[item] = {};
+                                  }
+                                  newPrices[item][store.name] = result;
+                                  setPrices(newPrices);
+                                }
+                              }}
+                            />
+                          )}
+                        </Box>
+                      );
+                    })}
+                  </Box>
+                  <Box sx={{ 
+                    mt: 2, 
+                    pt: 1, 
+                    borderTop: 1, 
+                    borderColor: 'divider',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}>
+                    <Typography variant="subtitle1">
+                      Total:
+                    </Typography>
+                    <Typography variant="h6" color="primary.main">
+                      ${total.toFixed(2)}
+                    </Typography>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+          );
+        })}
+      </Grid>
+    </Container>
+  );
+};
+
+export default StoreComparison;

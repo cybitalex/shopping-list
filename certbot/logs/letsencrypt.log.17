@@ -1,0 +1,20 @@
+2025-04-11 18:11:38,986:DEBUG:certbot._internal.main:certbot version: 4.0.0
+2025-04-11 18:11:38,986:DEBUG:certbot._internal.main:Location of certbot entry point: /usr/local/bin/certbot
+2025-04-11 18:11:38,986:DEBUG:certbot._internal.main:Arguments: ['--quiet']
+2025-04-11 18:11:38,986:DEBUG:certbot._internal.main:Discovered plugins: PluginsRegistry(PluginEntryPoint#manual,PluginEntryPoint#null,PluginEntryPoint#standalone,PluginEntryPoint#webroot)
+2025-04-11 18:11:39,000:DEBUG:certbot._internal.log:Root logging level set at 40
+2025-04-11 18:11:39,001:DEBUG:certbot._internal.display.obj:Notifying user: Processing /etc/letsencrypt/renewal/shopcheeply.duckdns.org.conf
+2025-04-11 18:11:39,002:DEBUG:certbot._internal.plugins.selection:Requested authenticator None and installer None
+2025-04-11 18:11:39,016:DEBUG:urllib3.connectionpool:Starting new HTTP connection (1): e6.o.lencr.org:80
+2025-04-11 18:11:39,024:DEBUG:urllib3.connectionpool:http://e6.o.lencr.org:80 "POST / HTTP/1.1" 200 346
+2025-04-11 18:11:39,025:DEBUG:certbot.ocsp:OCSP response for certificate /etc/letsencrypt/archive/shopcheeply.duckdns.org/cert5.pem is signed by the certificate's issuer.
+2025-04-11 18:11:39,028:DEBUG:certbot.ocsp:OCSP certificate status for /etc/letsencrypt/archive/shopcheeply.duckdns.org/cert5.pem is: OCSPCertStatus.GOOD
+2025-04-11 18:11:39,031:DEBUG:certbot._internal.display.obj:Notifying user: Certificate not yet due for renewal
+2025-04-11 18:11:39,032:DEBUG:certbot._internal.plugins.selection:Requested authenticator webroot and installer None
+2025-04-11 18:11:39,032:DEBUG:certbot._internal.display.obj:Notifying user: 
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+2025-04-11 18:11:39,032:DEBUG:certbot._internal.display.obj:Notifying user: The following certificates are not due for renewal yet:
+2025-04-11 18:11:39,032:DEBUG:certbot._internal.display.obj:Notifying user:   /etc/letsencrypt/live/shopcheeply.duckdns.org/fullchain.pem expires on 2025-07-09 (skipped)
+2025-04-11 18:11:39,032:DEBUG:certbot._internal.display.obj:Notifying user: No renewals were attempted.
+2025-04-11 18:11:39,032:DEBUG:certbot._internal.display.obj:Notifying user: - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+2025-04-11 18:11:39,032:DEBUG:certbot._internal.renewal:no renewal failures
