@@ -8,9 +8,8 @@ declare global {
 }
 
 let mapInstance: google.maps.Map | null = null;
-let placesService: google.maps.places.PlacesService | null = null;
-// For the new Place API (commented out for now since we don't have the correct type definitions)
-// let placesClient: google.maps.places.Place | null = null;
+// For the new Place API
+let placesClient: any = null; // Using any temporarily until type definitions are properly defined
 
 const createHiddenMap = () => {
   // Remove any existing map elements
@@ -40,8 +39,7 @@ export const loadGoogleMaps = (apiKey: string): Promise<void> => {
   return new Promise((resolve, reject) => {
     // Clean up existing instances
     mapInstance = null;
-    placesService = null;
-    // placesClient = null;
+    placesClient = null;
 
     // Remove any existing Google Maps scripts
     const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
@@ -62,16 +60,12 @@ export const loadGoogleMaps = (apiKey: string): Promise<void> => {
       try {
         mapInstance = createHiddenMap();
         
-        // Initialize the legacy PlacesService
-        placesService = new google.maps.places.PlacesService(mapInstance);
-        
-        // Attempt to initialize the new Place API if available
-        // Commented out until we have proper type definitions
-        /*
-        if (google.maps.places.Place) {
-          placesClient = new google.maps.places.Place();
+        // Initialize the new Place API if available
+        if (window.google.maps.places.Place) {
+          placesClient = window.google.maps.places.Place;
+        } else {
+          console.warn('Google Maps Place API not available');
         }
-        */
         
         resolve();
       } catch (error) {
@@ -92,16 +86,12 @@ export const loadGoogleMaps = (apiKey: string): Promise<void> => {
         try {
           mapInstance = createHiddenMap();
           
-          // Initialize the legacy PlacesService
-          placesService = new google.maps.places.PlacesService(mapInstance);
-          
-          // Attempt to initialize the new Place API if available
-          // Commented out until we have proper type definitions
-          /*
+          // Initialize the new Place API if available
           if (google.maps.places.Place) {
-            placesClient = new google.maps.places.Place();
+            placesClient = google.maps.places.Place;
+          } else {
+            console.warn('Google Maps Place API not available');
           }
-          */
           
           resolve();
         } catch (error) {
@@ -116,19 +106,115 @@ export const loadGoogleMaps = (apiKey: string): Promise<void> => {
   });
 };
 
+// Type definition for the new Place object from the API
+interface PlaceSearchResponse {
+  places: Array<{
+    id?: string;
+    displayName?: string;
+    formattedAddress?: string;
+    location?: {
+      lat: number;
+      lng: number;
+    };
+    rating?: number;
+    businessStatus?: string;
+  }>;
+}
+
+// Type definition for the searchNearby request based on current API
+interface SearchNearbyRequest {
+  textQuery: string;
+  locationRestriction?: {
+    rectangle?: {
+      low: { latitude: number; longitude: number };
+      high: { latitude: number; longitude: number };
+    }
+  };
+  locationBias?: {
+    circle?: {
+      center: { lat: number; lng: number };
+      radius: number;
+    }
+  };
+  includedType?: string;
+  fields: string[];
+}
+
 export const searchNearbyStores = async (
   query: string,
   location: { lat: number; lng: number },
   radius: number = 2000,
   maxStores: number = 20
-): Promise<google.maps.places.PlaceResult[]> => {
-  if (!mapInstance || !placesService) {
+): Promise<any[]> => {
+  if (!mapInstance) {
     throw new Error('Maps not initialized. Call loadGoogleMaps first.');
   }
 
+  if (!window.google?.maps?.places?.Place) {
+    console.warn('Using fallback method: new Place API not available');
+    return searchNearbyStoresLegacy(query, location, radius, maxStores);
+  }
+
+  try {
+    // Use the new Place.searchNearby() method
+    const request: SearchNearbyRequest = {
+      locationBias: {
+        circle: {
+          center: { lat: location.lat, lng: location.lng },
+          radius: radius
+        }
+      },
+      includedType: 'grocery_or_supermarket',
+      textQuery: query || '',
+      fields: ['displayName', 'location', 'businessStatus', 'formattedAddress', 'rating', 'id']
+    };
+
+    const response = await window.google.maps.places.Place.searchNearby(request) as PlaceSearchResponse;
+    
+    if (response && response.places) {
+      // Convert new response format to match old format
+      return response.places
+        .filter(place => place.location !== undefined)
+        .map(place => ({
+          place_id: place.id || '',
+          name: place.displayName || '',
+          vicinity: place.formattedAddress || '',
+          geometry: {
+            location: place.location ? 
+              new google.maps.LatLng(place.location.lat, place.location.lng) : 
+              new google.maps.LatLng(location.lat, location.lng)
+          },
+          rating: place.rating || 0
+        }))
+        .slice(0, maxStores);
+    }
+    
+    return [];
+  } catch (error) {
+    console.error('Error with new Places API search:', error);
+    
+    // Fallback to legacy method if the new one fails
+    console.warn('Falling back to legacy method after new Place API failed');
+    return searchNearbyStoresLegacy(query, location, radius, maxStores);
+  }
+};
+
+// Legacy method kept for fallback purposes
+const searchNearbyStoresLegacy = async (
+  query: string,
+  location: { lat: number; lng: number },
+  radius: number = 2000,
+  maxStores: number = 20
+): Promise<any[]> => {
+  console.warn('Using deprecated PlacesService - please update code to use new Place API');
+  
+  // Create temporary service just for this search
+  const tempMap = mapInstance;
+  const tempService = new google.maps.places.PlacesService(tempMap!);
+  
   const locationLatLng = new google.maps.LatLng(location.lat, location.lng);
   
-  const searchWithRadius = async (searchRadius: number): Promise<google.maps.places.PlaceResult[]> => {
+  const searchWithRadius = async (searchRadius: number): Promise<any[]> => {
     return new Promise((resolve, reject) => {
       const request: google.maps.places.PlaceSearchRequest = {
         location: locationLatLng,
@@ -144,8 +230,7 @@ export const searchNearbyStores = async (
       }
 
       try {
-        // Use the Places Service for now (but prepare for future migration)
-        placesService!.nearbySearch(
+        tempService.nearbySearch(
           request,
           (results, status) => {
             if (status === google.maps.places.PlacesServiceStatus.OK && results) {
@@ -168,15 +253,13 @@ export const searchNearbyStores = async (
             } else if (status === google.maps.places.PlacesServiceStatus.ZERO_RESULTS && searchRadius < 5000) {
               resolve(searchWithRadius(searchRadius * 1.5));
             } else {
-              console.warn(`Places search failed with status: ${status}`);
-              // Instead of rejecting, return an empty array to prevent UI failures
+              console.warn(`Places legacy search failed with status: ${status}`);
               resolve([]);
             }
           }
         );
       } catch (error) {
-        console.error('Error with Places API search:', error);
-        // Return empty array instead of rejecting
+        console.error('Error with legacy Places API search:', error);
         resolve([]);
       }
     });

@@ -1,13 +1,10 @@
 import {
   AppBar,
   Toolbar,
-  Typography,
   Box,
   useTheme,
   useMediaQuery,
 } from "@mui/material";
-import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
-import LocalOfferIcon from "@mui/icons-material/LocalOffer";
 
 const Header = () => {
   const theme = useTheme();
@@ -24,27 +21,15 @@ const Header = () => {
       }}
     >
       <Toolbar>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-          <LocalOfferIcon
-            sx={{
-              color: "primary.main",
-              fontSize: isMobile ? 24 : 28,
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%" }}>
+          <img 
+            src="/shop_cheeply_logo.png" 
+            alt="Shop Cheeply"
+            style={{
+              height: isMobile ? '40px' : '50px',
+              width: 'auto'
             }}
           />
-          <Typography
-            variant={isMobile ? "h6" : "h5"}
-            component="div"
-            sx={{
-              background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-              backgroundClip: "text",
-              WebkitBackgroundClip: "text",
-              color: "transparent",
-              fontWeight: 700,
-              letterSpacing: "-0.5px",
-            }}
-          >
-            Shop Cheeply
-          </Typography>
         </Box>
       </Toolbar>
     </AppBar>
