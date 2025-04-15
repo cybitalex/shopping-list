@@ -1,20 +1,20 @@
-2025-04-11 11:49:59,512:DEBUG:certbot._internal.main:certbot version: 4.0.0
-2025-04-11 11:49:59,513:DEBUG:certbot._internal.main:Location of certbot entry point: /usr/local/bin/certbot
-2025-04-11 11:49:59,513:DEBUG:certbot._internal.main:Arguments: ['--quiet']
-2025-04-11 11:49:59,513:DEBUG:certbot._internal.main:Discovered plugins: PluginsRegistry(PluginEntryPoint#manual,PluginEntryPoint#null,PluginEntryPoint#standalone,PluginEntryPoint#webroot)
-2025-04-11 11:49:59,527:DEBUG:certbot._internal.log:Root logging level set at 40
-2025-04-11 11:49:59,528:DEBUG:certbot._internal.display.obj:Notifying user: Processing /etc/letsencrypt/renewal/shopcheeply.duckdns.org.conf
-2025-04-11 11:49:59,530:DEBUG:certbot._internal.plugins.selection:Requested authenticator None and installer None
-2025-04-11 11:49:59,542:DEBUG:urllib3.connectionpool:Starting new HTTP connection (1): e6.o.lencr.org:80
-2025-04-11 11:49:59,550:DEBUG:urllib3.connectionpool:http://e6.o.lencr.org:80 "POST / HTTP/1.1" 200 346
-2025-04-11 11:49:59,550:DEBUG:certbot.ocsp:OCSP response for certificate /etc/letsencrypt/archive/shopcheeply.duckdns.org/cert5.pem is signed by the certificate's issuer.
-2025-04-11 11:49:59,552:DEBUG:certbot.ocsp:OCSP certificate status for /etc/letsencrypt/archive/shopcheeply.duckdns.org/cert5.pem is: OCSPCertStatus.GOOD
-2025-04-11 11:49:59,554:DEBUG:certbot._internal.display.obj:Notifying user: Certificate not yet due for renewal
-2025-04-11 11:49:59,555:DEBUG:certbot._internal.plugins.selection:Requested authenticator webroot and installer None
-2025-04-11 11:49:59,555:DEBUG:certbot._internal.display.obj:Notifying user: 
+2025-04-11 11:54:33,148:DEBUG:certbot._internal.main:certbot version: 4.0.0
+2025-04-11 11:54:33,148:DEBUG:certbot._internal.main:Location of certbot entry point: /usr/local/bin/certbot
+2025-04-11 11:54:33,148:DEBUG:certbot._internal.main:Arguments: ['--quiet']
+2025-04-11 11:54:33,148:DEBUG:certbot._internal.main:Discovered plugins: PluginsRegistry(PluginEntryPoint#manual,PluginEntryPoint#null,PluginEntryPoint#standalone,PluginEntryPoint#webroot)
+2025-04-11 11:54:33,161:DEBUG:certbot._internal.log:Root logging level set at 40
+2025-04-11 11:54:33,163:DEBUG:certbot._internal.display.obj:Notifying user: Processing /etc/letsencrypt/renewal/shopcheeply.duckdns.org.conf
+2025-04-11 11:54:33,164:DEBUG:certbot._internal.plugins.selection:Requested authenticator None and installer None
+2025-04-11 11:54:33,176:DEBUG:urllib3.connectionpool:Starting new HTTP connection (1): e6.o.lencr.org:80
+2025-04-11 11:54:33,184:DEBUG:urllib3.connectionpool:http://e6.o.lencr.org:80 "POST / HTTP/1.1" 200 346
+2025-04-11 11:54:33,184:DEBUG:certbot.ocsp:OCSP response for certificate /etc/letsencrypt/archive/shopcheeply.duckdns.org/cert5.pem is signed by the certificate's issuer.
+2025-04-11 11:54:33,186:DEBUG:certbot.ocsp:OCSP certificate status for /etc/letsencrypt/archive/shopcheeply.duckdns.org/cert5.pem is: OCSPCertStatus.GOOD
+2025-04-11 11:54:33,189:DEBUG:certbot._internal.display.obj:Notifying user: Certificate not yet due for renewal
+2025-04-11 11:54:33,189:DEBUG:certbot._internal.plugins.selection:Requested authenticator webroot and installer None
+2025-04-11 11:54:33,189:DEBUG:certbot._internal.display.obj:Notifying user: 
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-2025-04-11 11:49:59,555:DEBUG:certbot._internal.display.obj:Notifying user: The following certificates are not due for renewal yet:
-2025-04-11 11:49:59,555:DEBUG:certbot._internal.display.obj:Notifying user:   /etc/letsencrypt/live/shopcheeply.duckdns.org/fullchain.pem expires on 2025-07-09 (skipped)
-2025-04-11 11:49:59,555:DEBUG:certbot._internal.display.obj:Notifying user: No renewals were attempted.
-2025-04-11 11:49:59,556:DEBUG:certbot._internal.display.obj:Notifying user: - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-2025-04-11 11:49:59,556:DEBUG:certbot._internal.renewal:no renewal failures
+2025-04-11 11:54:33,190:DEBUG:certbot._internal.display.obj:Notifying user: The following certificates are not due for renewal yet:
+2025-04-11 11:54:33,190:DEBUG:certbot._internal.display.obj:Notifying user:   /etc/letsencrypt/live/shopcheeply.duckdns.org/fullchain.pem expires on 2025-07-09 (skipped)
+2025-04-11 11:54:33,190:DEBUG:certbot._internal.display.obj:Notifying user: No renewals were attempted.
+2025-04-11 11:54:33,190:DEBUG:certbot._internal.display.obj:Notifying user: - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+2025-04-11 11:54:33,190:DEBUG:certbot._internal.renewal:no renewal failures
