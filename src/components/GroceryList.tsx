@@ -17,19 +17,19 @@ import type { GroceryItem } from "../App";
 interface GroceryListProps {
   items: GroceryItem[];
   onAddItem: (name: string) => void;
-  onDeleteItem: (id: number) => void;
+  onRemoveItem: (id: number) => void;
 }
 
 const GroceryList: React.FC<GroceryListProps> = ({
   items,
   onAddItem,
-  onDeleteItem,
+  onRemoveItem,
 }) => {
   const [newItem, setNewItem] = useState("");
 
   const handleAddItem = () => {
     if (newItem.trim()) {
-      onAddItem(newItem);
+      onAddItem(newItem.trim());
       setNewItem("");
     }
   };
@@ -85,7 +85,7 @@ const GroceryList: React.FC<GroceryListProps> = ({
                   <IconButton
                     edge="end"
                     aria-label="delete"
-                    onClick={() => onDeleteItem(item.id)}
+                    onClick={() => onRemoveItem(item.id)}
                     sx={{ color: "error.light" }}
                   >
                     <DeleteIcon />

@@ -7,6 +7,7 @@ import { dirname, join } from "path";
 import OpenAI from "openai";
 import * as cheerio from "cheerio";
 import { chromium } from '@playwright/test';
+import { scrapeGoogleShopping } from './scraper.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -15,7 +16,9 @@ dotenv.config();
 
 const app = express();
 app.use(cors({
-  origin: ['http://localhost:5173', 'https://shopcheeply.duckdns.org'],
+  origin: process.env.NODE_ENV === 'production' 
+    ? ['https://shopcheeply.duckdns.org']
+    : ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173', 'http://127.0.0.1:3000'],
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
@@ -23,7 +26,14 @@ app.use(cors({
 
 // Add security headers
 app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
+  const allowedOrigins = process.env.NODE_ENV === 'production'
+    ? ['https://shopcheeply.duckdns.org']
+    : ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173', 'http://127.0.0.1:3000'];
+    
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -31,6 +41,129 @@ app.use((req, res, next) => {
 });
 
 app.use(express.json());
+
+// Add a new route for Google Shopping results using our scraper
+app.get("/api/google-price", async (req, res) => {
+  // Set content type explicitly to ensure client sees it as JSON
+  res.setHeader('Content-Type', 'application/json');
+  
+  try {
+    const { item, store } = req.query;
+    if (!item) {
+      return res.status(400).json({ 
+        success: false,
+        error: "Missing item parameter" 
+      });
+    }
+
+    console.log(`Using scraper to find price for ${item}${store ? ` at ${store}` : ''}`);
+    
+    // Use our custom scraper
+    const scraperResult = await scrapeGoogleShopping(item, store || '');
+    
+    if (scraperResult.success) {
+      let bestMatch = null;
+      
+      // If we have multiple items, find the best match
+      if (scraperResult.items && scraperResult.items.length > 0) {
+        // First try to find a match at the specified store
+        if (store) {
+          const storeMatches = scraperResult.items.filter(
+            product => product.store && product.store.toLowerCase().includes(store.toLowerCase())
+          );
+          
+          if (storeMatches.length > 0) {
+            // Sort by distance if available, then by price
+            bestMatch = storeMatches.sort((a, b) => {
+              // Sort by distance first if available
+              if (a.distance && b.distance) {
+                const distA = parseFloat((a.distance || '').match(/\d+(\.\d+)?/)?.[0] || '999');
+                const distB = parseFloat((b.distance || '').match(/\d+(\.\d+)?/)?.[0] || '999');
+                if (distA !== distB) return distA - distB;
+              }
+              
+              // Then by price if available
+              if (a.price && b.price) {
+                const priceA = parseFloat((a.price || '').replace('$', ''));
+                const priceB = parseFloat((b.price || '').replace('$', ''));
+                if (!isNaN(priceA) && !isNaN(priceB)) return priceA - priceB;
+              }
+              
+              return 0;
+            })[0];
+          }
+        }
+        
+        // If no store match found, just take the first item
+        if (!bestMatch) {
+          bestMatch = scraperResult.items[0];
+        }
+      }
+      
+      // Prepare the response
+      if (bestMatch) {
+        // Extract price as a number
+        const priceStr = bestMatch.price?.replace('$', '') || '0';
+        const price = parseFloat(priceStr);
+        
+        return res.status(200).json({
+          success: true,
+          price: isNaN(price) ? 0 : price,
+          productName: bestMatch.name,
+          source: 'google-shopping-scraper',
+          store: bestMatch.store || store || '',
+          fullStoreName: bestMatch.store,
+          url: '', // We don't have a URL from the scraper
+          isEstimate: false,
+          confidence: 0.9,
+          distance: bestMatch.distance,
+          returnPolicy: bestMatch.returnsPolicy,
+          rating: bestMatch.rating ? parseFloat(bestMatch.rating) : undefined,
+          reviewCount: bestMatch.reviewCount,
+          method: bestMatch.method
+        });
+      } else {
+        // No best match found, but we had success
+        return res.status(200).json({
+          success: true,
+          price: 0,
+          productName: item,
+          source: 'google-shopping-scraper',
+          store: store || '',
+          isEstimate: true,
+          confidence: 0.5,
+          message: 'No specific product match found'
+        });
+      }
+    } else {
+      // Scraper returned an error
+      console.error(`Scraper error: ${scraperResult.error}`);
+      return res.status(200).json({
+        success: false,
+        price: null,
+        productName: item,
+        source: 'google-shopping-scraper',
+        store: store || '',
+        error: scraperResult.error || 'Failed to scrape price',
+        isEstimate: true
+      });
+    }
+  } catch (error) {
+    console.error("Error using scraper:", error);
+    // In case of error, return fallback price
+    const fallbackPrice = getDefaultPriceEstimate(item, store || '');
+    return res.status(200).json({
+      success: true,
+      price: fallbackPrice.price,
+      productName: fallbackPrice.productName || item,
+      source: 'fallback',
+      store: store || '',
+      error: error.message,
+      isEstimate: true,
+      confidence: 0.5
+    });
+  }
+});
 
 // Serve static files from the dist directory in production
 if (process.env.NODE_ENV === 'production') {
@@ -49,9 +182,9 @@ if (!GOOGLE_MAPS_API_KEY) {
 }
 
 // Initialize OpenAI
-const openai = new OpenAI({
+const openai = new OpenAI.OpenAIApi(new OpenAI.Configuration({
   apiKey: process.env.OPENAI_API_KEY,
-});
+}));
 
 // Price estimation database
 const priceDatabase = {
@@ -342,7 +475,7 @@ app.get("/api/stores", async (req, res) => {
 
         if (
           response.data.status === "OK" &&
-          response.data?.results?.length > 0
+          response.data && response.data.results && response.data.results.length > 0
         ) {
           console.log(
             `Found ${response.data.results.length} ${chain} locations`
@@ -398,7 +531,7 @@ app.get("/api/stores", async (req, res) => {
       } catch (error) {
         console.error(
           `Error searching for ${chain}:`,
-          error.response?.data || error.message
+          (error.response && error.response.data) || error.message
         );
         continue;
       }
@@ -504,12 +637,12 @@ app.get("/api/stores", async (req, res) => {
   } catch (error) {
     console.error(
       "Error finding stores:",
-      error.response?.data || error.message
+      (error.response && error.response.data) || error.message
     );
     res.status(500).json({
       error:
         "Failed to find stores. Please check your location settings and try again.",
-      details: error.response?.data || error.message,
+      details: (error.response && error.response.data) || error.message,
     });
   }
 });
@@ -622,11 +755,7 @@ async function extractPriceWithOpenAI(item, store, html) {
       return null;
     }
     
-    const { OpenAI } = await import('openai');
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY
-    });
-    
+    // For OpenAI v3, we don't need dynamic import
     // Clean up HTML to focus on relevant parts and reduce token usage
     const cleanHtml = html
       .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
@@ -636,12 +765,7 @@ async function extractPriceWithOpenAI(item, store, html) {
       .trim()
       .substring(0, 15000); // Limit token usage
     
-    const response = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo-0125",
-      messages: [
-        {
-          role: "system",
-          content: `You are a specialized AI that extracts product details from HTML. 
+    const prompt = `You are a specialized AI that extracts product details from HTML. 
           Your task is to find pricing information for a grocery item called "${item}" at "${store}".
           If you can find the information, return a JSON object with these fields:
           - price: the numeric price (e.g., 3.99, not "$3.99")
@@ -650,18 +774,26 @@ async function extractPriceWithOpenAI(item, store, html) {
           - confidence: a number from 0-1 representing your confidence
 
           If multiple prices are found, select the most relevant one for "${item}".
-          If no pricing information is found, return { "found": false }`
-        },
-        {
-          role: "user",
-          content: cleanHtml
-        }
-      ],
-      temperature: 0.1,
-      response_format: { type: "json_object" }
+      If no pricing information is found, return { "found": false }
+      
+      HTML Content:
+      ${cleanHtml}`;
+    
+    const response = await openai.createCompletion({
+      model: "text-davinci-003",
+      prompt: prompt,
+      max_tokens: 300,
+      temperature: 0.1
     });
     
-    const result = JSON.parse(response.choices[0].message.content);
+    const resultText = response.choices[0].text.trim();
+    let result;
+    try {
+      result = JSON.parse(resultText);
+    } catch (error) {
+      console.error("Failed to parse OpenAI response as JSON:", resultText);
+      return null;
+    }
     
     if (result.found === false) {
       console.log('OpenAI could not find price information');
@@ -875,7 +1007,17 @@ async function fetchPriceWithAIAndPlaywright(item, store) {
     console.log(`Navigating to: ${fullUrl}`);
 
     try {
-      const context = await browser.newContext();
+      const context = await browser.newContext({
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        viewport: { width: 1920, height: 1080 },
+        geolocation: { latitude: 35.052664, longitude: -78.878358 }, // Default to Fayetteville, NC
+        permissions: ['geolocation'],
+        locale: 'en-US',
+        timezoneId: 'America/New_York',
+        httpCredentials: undefined,
+        ignoreHTTPSErrors: true
+      });
+      
       const page = await context.newPage();
       
       // Navigate to the store website
@@ -945,25 +1087,33 @@ async function fetchPriceWithAIAndPlaywright(item, store) {
 async function fetchPriceUsingAI(item, store) {
   console.log(`Attempting to estimate price with AI for ${item} at ${store}`);
   try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [
-        {
-          role: "system",
-          content: "You are a helpful assistant that provides estimated prices for grocery items at specific stores in the United States. Provide your best estimate based on current market data."
-        },
-        {
-          role: "user",
-          content: `What is the current price of ${item} at ${store}? Please respond with a JSON object containing the price as a number and a product name that would typically be found at this store. Format: {"price": number, "productName": "string"}`
-        }
-      ],
+    const prompt = `You are a helpful assistant that provides estimated prices for grocery items at specific stores in the United States. Provide your best estimate based on current market data.
+    
+What is the current price of ${item} at ${store}? Please respond with a JSON object containing the price as a number and a product name that would typically be found at this store. Format: {"price": number, "productName": "string"}`;
+    
+    const completion = await openai.createCompletion({
+      model: "text-davinci-003",
+      prompt: prompt,
       temperature: 0.7,
-      max_tokens: 150,
-      response_format: { type: "json_object" }
+      max_tokens: 150
     });
 
-    const responseText = completion.choices[0].message.content;
-    const responseData = JSON.parse(responseText);
+    const responseText = completion.choices[0].text.trim();
+    
+    let responseData;
+    try {
+      responseData = JSON.parse(responseText);
+    } catch (error) {
+      console.error(`Failed to parse AI response as JSON: ${error.message}`);
+      const estimatedPrice = await estimateItemPrice(item, store);
+      return {
+        success: true,
+        price: estimatedPrice.price,
+        productName: item,
+        source: 'ai',
+        confidence: estimatedPrice.confidence
+      };
+    }
 
     if (!responseData.price || isNaN(parseFloat(responseData.price))) {
       const estimatedPrice = await estimateItemPrice(item, store);
@@ -999,23 +1149,18 @@ async function fetchPriceUsingAI(item, store) {
 
 async function generateSearchQuery(item, store) {
   try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [
-        {
-          role: "system",
-          content: "You optimize search queries for finding products on store websites."
-        },
-        {
-          role: "user",
-          content: `Create an optimized search query for finding ${item} on the ${store} website. Return only the search query text, nothing else.`
-        }
-      ],
+    const prompt = `You optimize search queries for finding products on store websites.
+    
+Create an optimized search query for finding ${item} on the ${store} website. Return only the search query text, nothing else.`;
+    
+    const completion = await openai.createCompletion({
+      model: "text-davinci-003",
+      prompt: prompt,
       temperature: 0.3,
       max_tokens: 50
     });
 
-    return completion.choices[0].message.content.trim();
+    return completion.choices[0].text.trim();
   } catch (error) {
     console.error(`Error generating search query: ${error.message}`);
     return item; // Fallback to original item
@@ -1024,7 +1169,8 @@ async function generateSearchQuery(item, store) {
 
 async function analyzeProductData(productData, item, store) {
   try {
-    let prompt = `Extract the most relevant price for ${item} from this product data from ${store}:\n\n`;
+    let prompt = `You are a helpful assistant that extracts precise product information from web data.\n\n`;
+    prompt += `Extract the most relevant price for ${item} from this product data from ${store}:\n\n`;
     
     if (productData.title) prompt += `Title: ${productData.title}\n`;
     if (productData.price) prompt += `Price: ${productData.price}\n`;
@@ -1033,25 +1179,25 @@ async function analyzeProductData(productData, item, store) {
     
     prompt += "\nPlease respond with a JSON object containing the price as a number and the product name. Format: {\"price\": number, \"productName\": \"string\"}";
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [
-        {
-          role: "system",
-          content: "You are a helpful assistant that extracts precise product information from web data."
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
+    const completion = await openai.createCompletion({
+      model: "text-davinci-003",
+      prompt: prompt,
       temperature: 0.3,
-      max_tokens: 150,
-      response_format: { type: "json_object" }
+      max_tokens: 150
     });
 
-    const responseText = completion.choices[0].message.content;
-    const responseData = JSON.parse(responseText);
+    const responseText = completion.choices[0].text.trim();
+    let responseData;
+    
+    try {
+      responseData = JSON.parse(responseText);
+    } catch (error) {
+      console.log('Failed to parse AI response as JSON:', responseText);
+      return {
+        price: null,
+        productName: productData.title || item
+      };
+    }
 
     // Validate price format
     if (!responseData.price || isNaN(parseFloat(responseData.price))) {
@@ -1360,217 +1506,94 @@ app.listen(PORT, () => {
 
 // New function to search Google Shopping for prices using Playwright and AI
 async function searchGoogleWithPlaywright(item, store) {
-  console.log(`Searching Google Shopping for ${item} at ${store} using Playwright`);
+  console.log(`Searching Google Shopping for ${item} at ${store} using scraper`);
   
   try {
-    // Check if Playwright is enabled
-    if (process.env.ENABLE_PLAYWRIGHT !== 'true') {
-      console.log('Playwright is disabled via environment flag');
-      return getFallbackPriceResponse(item, store, 'Playwright is disabled');
-    }
+    // Use our custom scraper
+    const scraperResult = await scrapeGoogleShopping(item, store || '');
     
-    // Initialize browser
-    let browser;
-    try {
-      browser = await chromium.launch({ headless: true });
-    } catch (error) {
-      console.error(`Error launching browser: ${error.message}`);
-      return getFallbackPriceResponse(item, store, 'Browser launch failed');
-    }
-    
-    try {
-      const context = await browser.newContext({
-        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        geolocation: { latitude: 35.052664, longitude: -78.878358 }, // Default to Fayetteville, NC
-        permissions: ['geolocation']
-      });
+    if (scraperResult.success) {
+      let bestMatch = null;
       
-      const page = await context.newPage();
-      
-      // First navigate to Google Shopping
-      const googleShoppingUrl = 'https://www.google.com/shopping?udm=28';
-      
-      console.log(`Navigating to Google Shopping: ${googleShoppingUrl}`);
-      
-      // Navigate to Google Shopping with a timeout
-      try {
-        await page.goto(googleShoppingUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
-      } catch (error) {
-        console.error(`Navigation error to Google Shopping: ${error.message}`);
-        await browser.close();
-        return getFallbackPriceResponse(item, store, 'Navigation error to Google Shopping');
-      }
-      
-      // Wait for the search box to be available
-      try {
-        await page.waitForSelector('input[name="q"]', { timeout: 5000 });
-      } catch (error) {
-        console.error(`Search box not found: ${error.message}`);
-        // Take a screenshot for debugging
-        await page.screenshot({ path: 'google-shopping-error.png' });
-        await browser.close();
-        return getFallbackPriceResponse(item, store, 'Search box not found on Google Shopping');
-      }
-      
-      // Construct search query with store and item
-      const searchQuery = `${item} ${store}`;
-      
-      // Type into the search box
-      await page.fill('input[name="q"]', searchQuery);
-      
-      // Press Enter to submit the search
-      await page.press('input[name="q"]', 'Enter');
-      
-      // Wait for search results
-      try {
-        await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 10000 });
-      } catch (error) {
-        console.error(`Search results navigation error: ${error.message}`);
-        await browser.close();
-        return getFallbackPriceResponse(item, store, 'Search results navigation error');
-      }
-      
-      // Optional: Look for and click on "Nearby" or location options if available
-      try {
-        // Try to find common location filter buttons
-        const nearbySelectors = [
-          'text="Nearby"',
-          'text="Near me"',
-          'text="Available nearby"',
-          'text=nearby stores',
-          '[aria-label*="location"]',
-          '[aria-label*="nearby"]'
-        ];
-        
-        // Try each selector
-        for (const selector of nearbySelectors) {
-          const hasNearbyOption = await page.$(selector);
-          if (hasNearbyOption) {
-            console.log(`Found nearby option with selector: ${selector}`);
-            await hasNearbyOption.click();
-            await page.waitForTimeout(2000);
-            break;
+      // If we have multiple items, find the best match
+      if (scraperResult.items && scraperResult.items.length > 0) {
+        // First try to find a match at the specified store
+        if (store) {
+          const storeMatches = scraperResult.items.filter(
+            product => product.store && product.store.toLowerCase().includes(store.toLowerCase())
+          );
+          
+          if (storeMatches.length > 0) {
+            // Sort by distance if available, then by price
+            bestMatch = storeMatches.sort((a, b) => {
+              // Sort by distance first if available
+              if (a.distance && b.distance) {
+                const distA = parseFloat((a.distance || '').match(/\d+(\.\d+)?/)?.[0] || '999');
+                const distB = parseFloat((b.distance || '').match(/\d+(\.\d+)?/)?.[0] || '999');
+                if (distA !== distB) return distA - distB;
+              }
+              
+              // Then by price if available
+              if (a.price && b.price) {
+                const priceA = parseFloat((a.price || '').replace('$', ''));
+                const priceB = parseFloat((b.price || '').replace('$', ''));
+                if (!isNaN(priceA) && !isNaN(priceB)) return priceA - priceB;
+              }
+              
+              return 0;
+            })[0];
           }
         }
-      } catch (locationError) {
-        console.log(`Could not select location option: ${locationError.message}`);
-        // Continue anyway - non-critical error
-      }
-      
-      // Wait a bit for any dynamic content to load
-      await page.waitForTimeout(3000);
-      
-      // Take a screenshot for debugging
-      await page.screenshot({ path: `google-shopping-${item}-${store}.png` });
-      
-      // Get visible text and HTML for AI analysis
-      let visibleText = '';
-      let pageHtml = '';
-      try {
-        visibleText = await page.evaluate(() => document.body.innerText.substring(0, 8000));
-        pageHtml = await page.evaluate(() => document.body.innerHTML.substring(0, 15000));
-      } catch (error) {
-        console.error(`Text extraction error: ${error.message}`);
-        await browser.close();
-        return getFallbackPriceResponse(item, store, 'Text extraction error');
-      }
-      
-      // Close browser
-      await browser.close();
-      
-      // Use AI to extract the price information with focus on Google Shopping results
-      try {
-        const completion = await openai.chat.completions.create({
-          model: "gpt-3.5-turbo",
-          messages: [
-            {
-              role: "system",
-              content: `You analyze Google Shopping results to extract precise product prices and product names.
-              Extract the most accurate price and exact name of "${item}" at "${store}".
-              Focus on items that are specifically available at ${store}.
-              If multiple products are found, choose the one that best matches "${item}".
-              Ensure the product name includes brand, size, and other identifying details.
-              If no results from ${store} are found, extract the most relevant product price.
-              
-              Extract ALL of these details when available:
-              1. The EXACT product name with the EXACT spelling, capitalization and formatting shown (e.g., "Honeybear Cubbies Honeycrisp Apples")
-              2. Current price (as a number without currency symbol)
-              3. Original price if on sale (as a number without currency symbol)
-              4. The EXACT full store name including any additional text (e.g., "Sam's Club & more")
-              5. Return policy (e.g., "Free 90-day returns", "Lifetime returns")
-              6. Rating (e.g., 4.1)
-              7. Number of reviews exactly as shown (e.g., "1.3K")
-              8. Availability information (e.g., "Get it today ($17)")
-              9. Distance information if available (e.g., "Nearby, 6 mi")
-              
-              Be very specific and use the exact text from the page. Never change or normalize the product name.`
-            },
-            {
-              role: "user",
-              content: `Extract the price and exact product name of ${item} at ${store} from these Google Shopping results. 
-              Return a JSON object with: 
-              - price (as a number, without currency symbols)
-              - productName (string with EXACT product name as shown on Google Shopping)
-              - confidence (number between 0-1)
-              - fullStoreName (the exact full store name with additional details like "& more")
-              - returnPolicy (return policy information if available)
-              - rating (product rating number if available)
-              - reviewCount (number of reviews as shown on the page - keep formatting like "1.3K")
-              - availability (availability information like "Get it today ($17)")
-              - priceWas (original price if item is on sale, as a number)
-              - distance (distance information if available, e.g., "Nearby, 6 mi")
-              
-              Google Shopping Results:
-              ${visibleText}
-              
-              HTML Content (may contain structured pricing data):
-              ${pageHtml.substring(0, 3000)}`
-            }
-          ],
-          temperature: 0.3,
-          max_tokens: 500,
-          response_format: { type: "json_object" }
-        });
         
-        // Parse the response
-        const responseText = completion.choices[0].message.content;
-        const responseData = JSON.parse(responseText);
-        
-        if (!responseData.price || isNaN(parseFloat(responseData.price))) {
-          console.log(`AI couldn't extract a valid price from Google Shopping results`);
-          return getFallbackPriceResponse(item, store, "Couldn't extract price from Google Shopping results");
+        // If no store match found, just take the first item
+        if (!bestMatch) {
+          bestMatch = scraperResult.items[0];
         }
-        
-        // Convert rating and priceWas to numbers if they exist
-        const rating = responseData.rating ? parseFloat(responseData.rating) : undefined;
-        const priceWas = responseData.priceWas ? parseFloat(responseData.priceWas) : undefined;
+      }
+      
+      // Prepare the response
+      if (bestMatch) {
+        // Extract price as a number
+        const priceStr = bestMatch.price?.replace('$', '') || '0';
+        const price = parseFloat(priceStr);
         
         return {
           success: true,
-          price: parseFloat(responseData.price),
-          productName: responseData.productName || item,
-          source: 'google-shopping',
-          store: store,
-          fullStoreName: responseData.fullStoreName,
-          returnPolicy: responseData.returnPolicy,
-          rating: rating,
-          reviewCount: responseData.reviewCount,
-          availability: responseData.availability,
-          priceWas: priceWas,
-          confidence: responseData.confidence || 0.7
+          price: isNaN(price) ? 0 : price,
+          productName: bestMatch.name,
+          source: 'google-shopping-scraper',
+          store: bestMatch.store || store || '',
+          fullStoreName: bestMatch.store,
+          url: '', // We don't have a URL from the scraper
+          isEstimate: false,
+          confidence: 0.9,
+          distance: bestMatch.distance,
+          returnPolicy: bestMatch.returnsPolicy,
+          rating: bestMatch.rating ? parseFloat(bestMatch.rating) : undefined,
+          reviewCount: bestMatch.reviewCount,
+          method: bestMatch.method
         };
-      } catch (error) {
-        console.error(`AI processing error: ${error.message}`);
-        return getFallbackPriceResponse(item, store, 'AI processing error');
+      } else {
+        // No best match found, but we had success
+        return {
+          success: true,
+          price: 0,
+          productName: item,
+          source: 'google-shopping-scraper',
+          store: store || '',
+          isEstimate: true,
+          confidence: 0.5,
+          message: 'No specific product match found'
+        };
       }
-    } catch (error) {
-      console.error(`Error in Google Shopping search with Playwright: ${error.message}`);
-      if (browser) await browser.close();
-      return getFallbackPriceResponse(item, store, `Failed to search Google Shopping with Playwright: ${error.message}`);
+    } else {
+      // Scraper returned an error
+      console.error(`Scraper error: ${scraperResult.error}`);
+      return getFallbackPriceResponse(item, store || '', scraperResult.error || 'Failed to scrape price');
     }
   } catch (error) {
-    console.error(`Error in searchGoogleWithPlaywright: ${error.message}`);
-    return getFallbackPriceResponse(item, store, `General error: ${error.message}`);
+    console.error("Error using scraper:", error);
+    return getFallbackPriceResponse(item, store || '', error.message);
   }
 }
 
@@ -1737,3 +1760,170 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Promise Rejection:', reason);
   // Don't exit the process, just log the error
 });
+
+// Add this function just before searchGoogleWithPlaywright function
+// Extract structured data from Google Shopping results
+async function extractStructuredData(page, item, store) {
+  try {
+    console.log('Attempting to extract structured data from Google Shopping results');
+    
+    // Attempt to extract JSON-LD structured data first (most reliable)
+    const jsonLdData = await page.evaluate(() => {
+      const jsonScripts = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
+      const productData = jsonScripts
+        .map(script => {
+          try {
+            return JSON.parse(script.textContent);
+          } catch (e) {
+            return null;
+          }
+        })
+        .filter(data => data && (data['@type'] === 'Product' || (Array.isArray(data) && data.some(item => item['@type'] === 'Product'))));
+      
+      return productData.length ? productData[0] : null;
+    });
+    
+    if (jsonLdData) {
+      console.log('Found JSON-LD structured data');
+      
+      // Extract product from JSON-LD
+      let product = jsonLdData;
+      if (Array.isArray(jsonLdData)) {
+        product = jsonLdData.find(item => item['@type'] === 'Product') || jsonLdData[0];
+      }
+      
+      if (product.name && product.offers) {
+        const price = typeof product.offers === 'object' ? 
+          (product.offers.price || (Array.isArray(product.offers) && product.offers.length > 0 && product.offers[0] && product.offers[0].price)) : null;
+          
+        if (price) {
+          return {
+            price: parseFloat(price),
+            productName: product.name,
+            fullStoreName: product.offers.seller && product.offers.seller.name ? product.offers.seller.name : store,
+            returnPolicy: null,
+            rating: product.aggregateRating && product.aggregateRating.ratingValue ? product.aggregateRating.ratingValue : null,
+            reviewCount: product.aggregateRating && product.aggregateRating.reviewCount ? product.aggregateRating.reviewCount : null,
+            availability: product.offers.availability,
+            priceWas: null,
+            confidence: 0.9
+          };
+        }
+      }
+    }
+    
+    // If JSON-LD failed, try to extract data from common Google Shopping DOM patterns
+    return await page.evaluate((searchedItem, searchedStore) => {
+      // Helper function to extract price
+      const extractPrice = text => {
+        const match = text.match(/[\$\£\€]?(\d+(?:\.\d{1,2})?)/);
+        return match ? parseFloat(match[1]) : null;
+      };
+      
+      // Try to find Google Shopping product cards
+      const productCards = Array.from(document.querySelectorAll('.sh-dgr__grid-result, [data-docid]'));
+      
+      // Find the most relevant product that matches our search
+      const relevantProducts = productCards
+        .map(card => {
+          try {
+            const titleElement = card.querySelector('h3, .BvQan, [role="heading"]');
+            const priceElement = card.querySelector('.a8Pemb, [data-sh-or="price"]');
+            const storeElement = card.querySelector('.aULzUe, [data-sh-or="seller_name"]');
+            const ratingElement = card.querySelector('.QIrs8, [data-sh-or="rating"]');
+            
+            // Skip if we don't have essential elements
+            if (!titleElement || !priceElement) return null;
+            
+            const title = titleElement.textContent.trim();
+            const priceText = priceElement.textContent.trim();
+            const storeName = storeElement ? storeElement.textContent.trim() : null;
+            
+            // Check if this product is likely to be from the store we're searching for
+            const isFromStore = storeName && 
+              (storeName.toLowerCase().includes(searchedStore.toLowerCase()) || 
+               searchedStore.toLowerCase().includes(storeName.toLowerCase()));
+            
+            // Extract pricing information
+            const price = extractPrice(priceText);
+            
+            // Extract previous price if available (for sale items)
+            let priceWasElement = card.querySelector('.T14wmb');
+            let priceWas = priceWasElement ? extractPrice(priceWasElement.textContent) : null;
+            
+            // Extract rating if available
+            let rating = null;
+            if (ratingElement) {
+              const ratingMatch = ratingElement.textContent.match(/(\d+(\.\d+)?)/);
+              rating = ratingMatch ? parseFloat(ratingMatch[1]) : null;
+            }
+            
+            // Extract review count if available
+            const reviewElement = card.querySelector('.QIrs8 + span, [data-sh-or="review_count"]');
+            const reviewCount = reviewElement ? reviewElement.textContent.trim() : null;
+            
+            // Extract availability info if present
+            const availabilityElement = card.querySelector('.Dklvde, [data-sh-or="availability"]');
+            const availability = availabilityElement ? availabilityElement.textContent.trim() : null;
+            
+            return {
+              productName: title,
+              price: price,
+              fullStoreName: storeName,
+              returnPolicy: null, // Not usually available in card view
+              rating: rating,
+              reviewCount: reviewCount,
+              availability: availability,
+              priceWas: priceWas,
+              isFromStore: isFromStore,
+              relevanceScore: isFromStore ? 2 : 1, // Prefer items from the target store
+              element: card
+            };
+          } catch (err) {
+            return null;
+          }
+        })
+        .filter(product => product && product.price);
+      
+      // Sort by relevance and return the best match
+      if (relevantProducts.length > 0) {
+        // Sort by whether it's from the store, then by having the item name in the title
+        relevantProducts.sort((a, b) => {
+          // First prioritize store matches
+          if (a.isFromStore && !b.isFromStore) return -1;
+          if (!a.isFromStore && b.isFromStore) return 1;
+          
+          // Then check if product name contains item we're searching for
+          const aHasItem = a.productName.toLowerCase().includes(searchedItem.toLowerCase());
+          const bHasItem = b.productName.toLowerCase().includes(searchedItem.toLowerCase());
+          
+          if (aHasItem && !bHasItem) return -1;
+          if (!aHasItem && bHasItem) return 1;
+          
+          // If all else is equal, go with the cheaper option
+          return a.price - b.price;
+        });
+        
+        const bestMatch = relevantProducts[0];
+        
+        return {
+          price: bestMatch.price,
+          productName: bestMatch.productName,
+          fullStoreName: bestMatch.fullStoreName,
+          returnPolicy: bestMatch.returnPolicy,
+          rating: bestMatch.rating,
+          reviewCount: bestMatch.reviewCount,
+          availability: bestMatch.availability,
+          priceWas: bestMatch.priceWas,
+          confidence: bestMatch.isFromStore ? 0.85 : 0.7
+        };
+      }
+      
+      return null;
+    }, item, store);
+    
+  } catch (error) {
+    console.error('Error extracting structured data:', error.message);
+    return null;
+  }
+}

@@ -18,7 +18,9 @@ import {
   ListItem,
   ListItemText,
   ListItemIcon,
-  Divider
+  Divider,
+  ButtonGroup,
+  Alert
 } from "@mui/material";
 import type { Store } from "../types/store";
 import { type Product } from "../services/products";
@@ -26,8 +28,12 @@ import StarIcon from "@mui/icons-material/Star";
 import LocationOnIcon from "@mui/icons-material/LocationOn";
 import StorefrontIcon from "@mui/icons-material/Storefront";
 import PlaceIcon from "@mui/icons-material/Place";
+import ViewListIcon from "@mui/icons-material/ViewList";
+import MapIcon from "@mui/icons-material/Map";
+import RefreshIcon from "@mui/icons-material/Refresh";
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import { TableContainer, Table, TableHead, TableBody, TableRow, TableCell } from "@mui/material";
 
 // Get the token from environment variables
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
@@ -42,6 +48,8 @@ interface StoreComparisonProps {
   onCheapestStore: (store: Store | null) => void;
   onRequestLocation?: () => void;
   currentLocation?: { lat: number; lng: number } | null;
+  selectedStore: Store | null;
+  onStoreSelect: (store: Store) => void;
 }
 
 interface PriceResult {
@@ -57,6 +65,7 @@ interface PriceResult {
   reviewCount?: number; // Number of reviews (e.g., 1.3K)
   availability?: string; // Availability info (e.g., "Get it today ($17)")
   priceWas?: number; // Original price if on sale
+  method?: string; // Added for Google Shopping Scraper
 }
 
 interface FetchPriceOnDemandProps {
@@ -225,9 +234,9 @@ const FetchPriceOnDemand: React.FC<FetchPriceOnDemandProps> = ({ item, store, on
       setIsLoading(true);
       setHasError(false);
       
-      // First try google-price endpoint (now using Google Shopping)
-      const initialEndpoint = 'google-price';
-      console.log(`Queueing price fetch for ${item} at ${store} using ${initialEndpoint} (Google Shopping)`);
+      // Use the Google Shopping scraper endpoint directly
+      const endpoint = 'google-price';
+      console.log(`Queueing price fetch for ${item} at ${store} using ${endpoint} (Google Shopping Scraper)`);
       
       // Add to queue 
       priceRequestQueue.push({
@@ -235,75 +244,64 @@ const FetchPriceOnDemand: React.FC<FetchPriceOnDemandProps> = ({ item, store, on
         store,
         callback: (result) => {
           if (result) {
-            // If we got a result from Google Shopping, use it
             onPriceReceived(result);
             setIsLoading(false);
           } else {
-            // Try fallback endpoint if Google Shopping failed
+            // Try fallback endpoint if scraper failed
             console.log(`Falling back to estimate price for ${item} at ${store}`);
             priceRequestQueue.push({
               item,
               store,
+              endpoint: 'fetch-price',
               callback: (fallbackResult) => {
                 if (fallbackResult) {
                   onPriceReceived(fallbackResult);
                 } else {
-                  // Use our client-side fallback as a last resort
-                  console.log(`Server fallbacks failed, using client-side estimation for ${item} at ${store}`);
-                  const clientFallback = generateFallbackPrice(item, store);
-                  onPriceReceived(clientFallback);
+                  onPriceReceived(null);
           }
           setIsLoading(false);
-              },
-              endpoint: 'fetch-price'
+              }
             });
-            
-            // Ensure queue processing continues
-            if (!isProcessingQueue) {
+            // Process the fallback request
               processQueue();
-            }
           }
         },
-        endpoint: initialEndpoint
+        endpoint
       });
       
-      // Start processing queue if not already running
-      if (!isProcessingQueue) {
+      // Start processing the queue
         processQueue();
-      }
     };
     
-    // Fetch once only, no retries
       fetchPrice();
     
+    // Cleanup function
     return () => {
-      // No cleanup needed - the queue handles everything
+      // Remove any pending requests for this component
+      const index = priceRequestQueue.findIndex(request => 
+        request.item === item && request.store === store);
+      if (index >= 0) {
+        priceRequestQueue.splice(index, 1);
+      }
     };
-  }, [item, store, onPriceReceived]);
+  }, [item, store]);
 
-  if (isLoading) {
     return (
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-        <CircularProgress size={16} />
-        <Typography variant="body2" color="text.secondary">
-          Fetching price...
-        </Typography>
+    <Box sx={{ minHeight: 30, display: 'flex', alignItems: 'center' }}>
+      {isLoading ? (
+        <CircularProgress size={16} sx={{ mr: 1 }} />
+      ) : hasError ? (
+        <Tooltip title="Error fetching price">
+          <Chip
+            size="small"
+            label="Error"
+            color="error"
+            variant="outlined"
+          />
+        </Tooltip>
+      ) : null}
       </Box>
     );
-  }
-
-  // We shouldn't ever see this anymore since we always provide a fallback
-  if (hasError) {
-    return (
-      <Box>
-        <Typography variant="body2" color="text.disabled">
-          Price data unavailable
-        </Typography>
-      </Box>
-    );
-  }
-
-  return null;
 };
 
 // Add a client-side fallback price generator
@@ -671,6 +669,195 @@ const isMilitaryCommissary = (storeName: string): boolean => {
   );
 };
 
+// Add this after the processQueue function
+const batchProcessPrices = async (items: string[], stores: Store[]): Promise<Map<string, Map<string, PriceResult>>> => {
+  console.log(`Starting batch price processing for ${items.length} items at ${stores.length} stores`);
+  const results = new Map<string, Map<string, PriceResult>>();
+  
+  // Initialize the results map
+  for (const item of items) {
+    results.set(item, new Map<string, PriceResult>());
+  }
+  
+  // First try to get prices for all items at once using currentLocation
+  const currentLocationPrices = await Promise.all(
+    items.map(async (item) => {
+      try {
+        const response = await fetch(`/api/google-price?item=${encodeURIComponent(item)}`);
+        if (!response.ok) throw new Error(`Network error: ${response.status}`);
+        
+        const data = await response.json();
+        if (data.success && data.stores) {
+          console.log(`Found ${data.stores.length} stores for ${item} with Google Shopping Scraper`);
+          
+          // Process each store's results
+          for (const storeData of data.stores) {
+            const storeName = storeData.name;
+            
+            // Get the first (usually cheapest) item for this store
+            if (storeData.items && storeData.items.length > 0) {
+              const itemData = storeData.items[0];
+              
+              // Extract price as number
+              const priceText = itemData.price || "0";
+              const price = parseFloat(priceText.replace('$', '')) || 0;
+              
+              // Create result object
+              const result: PriceResult = {
+                price,
+                productName: itemData.name || item,
+                source: 'google-shopping-scraper',
+                store: storeName,
+                fullStoreName: storeName,
+                url: '',
+                isEstimate: false,
+                returnPolicy: itemData.returnsPolicy,
+                rating: itemData.rating ? parseFloat(itemData.rating) : undefined,
+                reviewCount: itemData.reviewCount ? parseInt(itemData.reviewCount.replace(/[^0-9]/g, '')) : undefined,
+                method: itemData.method
+              };
+              
+              // Save to our results map
+              const itemMap = results.get(item);
+              if (itemMap) {
+                itemMap.set(storeName, result);
+              }
+            }
+          }
+          
+          return { item, success: true };
+        }
+        
+        return { item, success: false };
+      } catch (error) {
+        console.error(`Error batch processing ${item}:`, error);
+        return { item, success: false };
+      }
+    })
+  );
+  
+  // For any items that didn't get results, try individual store queries
+  const failedItems = currentLocationPrices
+    .filter(result => !result.success)
+    .map(result => result.item);
+  
+  if (failedItems.length > 0) {
+    console.log(`Fetching individual store prices for ${failedItems.length} items that failed batch processing`);
+    
+    // Process 3 items at a time to avoid overloading
+    const chunks = [];
+    for (let i = 0; i < failedItems.length; i += 3) {
+      chunks.push(failedItems.slice(i, i + 3));
+    }
+    
+    for (const chunk of chunks) {
+      await Promise.all(
+        chunk.map(async (item) => {
+          const itemPromises = stores.map(async (store) => {
+            try {
+              const response = await fetch(`/api/google-price?item=${encodeURIComponent(item)}&store=${encodeURIComponent(store.name)}`);
+              if (!response.ok) return null;
+              
+              const data = await response.json();
+              if (data.success && data.price) {
+                const result: PriceResult = {
+                  price: data.price,
+                  productName: data.productName || item,
+                  source: data.source,
+                  store: store.name,
+                  fullStoreName: data.fullStoreName || store.name,
+                  url: data.url || '',
+                  isEstimate: !!data.isEstimate,
+                  returnPolicy: data.returnPolicy,
+                  rating: data.rating,
+                  reviewCount: data.reviewCount
+                };
+                
+                const itemMap = results.get(item);
+                if (itemMap) {
+                  itemMap.set(store.name, result);
+                }
+              }
+            } catch (error) {
+              console.error(`Error fetching price for ${item} at ${store.name}:`, error);
+              // Use fallback pricing as last resort
+              const fallback = generateFallbackPrice(item, store.name);
+              const itemMap = results.get(item);
+              if (itemMap && !itemMap.has(store.name)) {
+                itemMap.set(store.name, fallback);
+              }
+            }
+          });
+          
+          await Promise.all(itemPromises);
+        })
+      );
+      
+      // Add a small delay between chunks
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+  }
+  
+  return results;
+};
+
+// Add this function to find the cheapest store based on batch results
+const findCheapestStoreFromBatch = (
+  priceResults: Map<string, Map<string, PriceResult>>,
+  stores: Store[]
+): { store: Store | null; totalPrice: number; savings: Record<string, number> } => {
+  // Track total prices for each store
+  const storeTotals: Record<string, number> = {};
+  const itemsFoundAtStore: Record<string, number> = {};
+  
+  // Initialize tracking for each store
+  for (const store of stores) {
+    storeTotals[store.name] = 0;
+    itemsFoundAtStore[store.name] = 0;
+  }
+  
+  // Calculate total price for each store
+  const itemCount = priceResults.size;
+  for (const [item, storeMap] of priceResults.entries()) {
+    for (const [storeName, result] of storeMap.entries()) {
+      if (storeTotals[storeName] !== undefined) {
+        storeTotals[storeName] += result.price;
+        itemsFoundAtStore[storeName]++;
+      }
+    }
+  }
+  
+  // Find the store with the lowest total that has prices for all items
+  let cheapestStore: Store | null = null;
+  let lowestTotal = Infinity;
+  
+  for (const store of stores) {
+    // Only consider stores that have prices for all items
+    if (itemsFoundAtStore[store.name] === itemCount) {
+      if (storeTotals[store.name] < lowestTotal) {
+        lowestTotal = storeTotals[store.name];
+        cheapestStore = store;
+      }
+    }
+  }
+  
+  // Calculate potential savings at cheapest store vs. each other store
+  const savings: Record<string, number> = {};
+  if (cheapestStore) {
+    for (const store of stores) {
+      if (store.name !== cheapestStore.name && itemsFoundAtStore[store.name] === itemCount) {
+        savings[store.name] = storeTotals[store.name] - lowestTotal;
+      }
+    }
+  }
+  
+  return { 
+    store: cheapestStore, 
+    totalPrice: lowestTotal === Infinity ? 0 : lowestTotal,
+    savings
+  };
+};
+
 const StoreComparison: React.FC<StoreComparisonProps> = ({
   items,
   stores,
@@ -678,41 +865,36 @@ const StoreComparison: React.FC<StoreComparisonProps> = ({
   isLocatingStores,
   onCheapestStore,
   onRequestLocation,
-  currentLocation
+  currentLocation,
+  selectedStore,
+  onStoreSelect
 }) => {
   const [storeProducts, setStoreProducts] = useState<{ [key: string]: Product[] }>({});
-  const [isLoading, setIsLoading] = useState(false);
   const [prices, setPrices] = useState<Record<string, Record<string, PriceResult>>>({});
+  const [expandedStore, setExpandedStore] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [mapOpen, setMapOpen] = useState<boolean>(true);
+  const [useWebScraper, setUseWebScraper] = useState<boolean>(true);
+  const [useFastBatchProcessing, setUseFastBatchProcessing] = useState<boolean>(true);
+  const [batchProcessingStatus, setBatchProcessingStatus] = useState<string>('');
   const [pendingRequests, setPendingRequests] = useState<Set<string>>(new Set());
   const [locationRequested, setLocationRequested] = useState(false);
   const [cheapestItemStores, setCheapestItemStores] = useState<Record<string, string[]>>({});
-  const [selectedStore, setSelectedStore] = useState<Store | null>(null);
   const [allPricesFetched, setAllPricesFetched] = useState(false);
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<mapboxgl.Map | null>(null);
   const markers = useRef<mapboxgl.Marker[]>([]);
+  const [showMap, setShowMap] = useState(true);
+  const [storesWithItems, setStoresWithItems] = useState<Store[]>([]);
   
-  // Handle location request
-  const handleRequestLocation = () => {
-    setLocationRequested(true);
-    if (onRequestLocation) {
-      onRequestLocation();
-    }
-  };
-
-  // Filter and group stores
-  const processedStores = useMemo(() => {
-    // Only keep grocery and retail stores
-    const groceryStores = stores.filter(store => isGroceryOrRetailStore(store.name));
-    
-    // Sort by distance
-    return groceryStores.sort((a, b) => a.distance - b.distance);
-  }, [stores]);
+  // Reference for the map
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<mapboxgl.Map | null>(null);
   
-  // Limit to 10 stores for better UI performance
+  // Keep limited view of stores for display
   const limitedStores = useMemo(() => {
-    return processedStores.slice(0, 10);
-  }, [processedStores]);
+    return groupSimilarStores(stores).slice(0, 20);
+  }, [stores]);
   
   // Compute store totals and cheapest store
   const { storeTotals, cheapestStoreIds } = useMemo(() => {
@@ -731,8 +913,9 @@ const StoreComparison: React.FC<StoreComparisonProps> = ({
       let total = 0;
       let hasAllItems = true;
       
-      for (const item of items) {
-        const price = prices[item]?.[store.name]?.price;
+      for (const itemObj of items) {
+        const itemName = typeof itemObj === 'string' ? itemObj : itemObj.name;
+        const price = prices[itemName]?.[store.name]?.price;
         if (typeof price === 'number') {
           total += price;
         } else {
@@ -764,9 +947,9 @@ const StoreComparison: React.FC<StoreComparisonProps> = ({
       const cheapestStore = limitedStores.find(s => s.name === lowestStoreNames[0]) || null;
       if (cheapestStore) {
         onCheapestStore(cheapestStore);
-      }
     } else {
       onCheapestStore(null);
+      }
     }
     
     return { 
@@ -775,798 +958,279 @@ const StoreComparison: React.FC<StoreComparisonProps> = ({
     };
   }, [items, limitedStores, prices, onCheapestStore]);
   
-  // Check if all prices are fetched
-  useEffect(() => {
-    if (items.length === 0 || limitedStores.length === 0) {
-      setAllPricesFetched(false);
-      return;
-    }
-
-    let allFetched = true;
-    for (const item of items) {
-      for (const store of limitedStores) {
-        if (!prices[item]?.[store.name]) {
-          allFetched = false;
-          break;
-        }
-      }
-      if (!allFetched) break;
-    }
-
-    setAllPricesFetched(allFetched);
-  }, [items, limitedStores, prices]);
-  
-  // Initialize map only once and update markers when all data is available
-  useEffect(() => {
-    if (!mapRef.current || !stores.length || !processedStores.length) return;
-    
-    if (!MAPBOX_TOKEN) {
-      console.error("Mapbox API key is missing. Map cannot be displayed.");
-      return;
-    }
-
-    // Create the map instance if it doesn't exist
-    if (!mapInstance.current) {
-      console.log("Creating new map instance");
-      
-      // Find the first store to center the map initially, or use current location if available
-      const centerPoint = currentLocation 
-        ? [currentLocation.lng, currentLocation.lat] 
-        : [processedStores[0].longitude, processedStores[0].latitude];
-      
-      try {
-        // Create the map with a more reliable style
-        mapInstance.current = new mapboxgl.Map({
-          container: mapRef.current,
-          style: 'mapbox://styles/mapbox/streets-v12',
-          center: centerPoint as [number, number],
-          zoom: 11,
-          attributionControl: true,
-          trackResize: true,
-          maxZoom: 18
-        });
-        
-        // Force repainting for Webkit browsers
-        mapInstance.current.getCanvas().style.willChange = 'transform';
-
-        // Add navigation controls
-        mapInstance.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
-        
-        // Add scale control
-        mapInstance.current.addControl(new mapboxgl.ScaleControl(), 'bottom-left');
-        
-        // Wait for the map to load before adding markers
-        mapInstance.current.on('load', () => {
-          console.log('Map loaded successfully');
-          updateMapMarkers();
-        });
-
-        // If there's a style load error, try a different style
-        mapInstance.current.on('error', (e) => {
-          console.error('Mapbox error:', e);
-          // Check if we can determine it's a style error by checking message
-          if (e.error && typeof e.error === 'object' && 'message' in e.error && 
-              typeof e.error.message === 'string' && e.error.message.includes('style')) {
-            console.log('Trying fallback style...');
-            mapInstance.current?.setStyle('mapbox://styles/mapbox/light-v11');
-          }
-        });
-      } catch (error) {
-        console.error("Error creating map:", error);
-      }
-    }
-    
-    // Only update markers when all prices are loaded or when map is first created
-    const map = mapInstance.current;
-    if (allPricesFetched && map && typeof map.loaded === 'function' && map.loaded()) {
-      updateMapMarkers();
-    }
-    
-    function updateMapMarkers() {
-      const mapRef = mapInstance.current;
-      if (!mapRef) return;
-      
-      console.log("Updating map markers");
-      
-      // Clear previous markers
-      markers.current.forEach(marker => marker.remove());
-      markers.current = [];
-      
-      // Coordinates for bounding box calculation
-      const coordinates: [number, number][] = [];
-      
-      // Add current location marker if available
-      if (currentLocation) {
-        // Create a DOM element for the current location marker
-        const el = document.createElement('div');
-        el.className = 'current-location-marker';
-        el.style.backgroundColor = '#4285F4';
-        el.style.width = '24px';
-        el.style.height = '24px';
-        el.style.borderRadius = '50%';
-        el.style.border = '3px solid white';
-        el.style.boxShadow = '0 0 5px rgba(0,0,0,0.3)';
-        el.style.zIndex = '100';
-        
-        // Add the current location marker
-        const userMarker = new mapboxgl.Marker(el)
-          .setLngLat([currentLocation.lng, currentLocation.lat])
-          .setPopup(new mapboxgl.Popup({ closeButton: false }).setHTML('<strong>Your Location</strong>'))
-          .addTo(mapRef);
-        
-        markers.current.push(userMarker);
-        
-        // Add to coordinates for bounding box
-        coordinates.push([currentLocation.lng, currentLocation.lat]);
-      }
-      
-      // Add store markers
-      processedStores.forEach(store => {
-        const isCheapest = cheapestStoreIds.includes(store.name);
-        const isSelected = selectedStore && store.name === selectedStore.name;
-        
-        // Create a DOM element for the marker
-        const el = document.createElement('div');
-        el.className = 'store-marker';
-        el.style.width = isCheapest ? '22px' : '18px';
-        el.style.height = isCheapest ? '22px' : '18px';
-        el.style.backgroundColor = isCheapest ? '#0F9D58' : isSelected ? '#FFC107' : '#DB4437';
-        el.style.borderRadius = '50%';
-        el.style.border = '2px solid white';
-        el.style.boxShadow = '0 0 5px rgba(0,0,0,0.3)';
-        el.style.cursor = 'pointer';
-        
-        // Add pulsing animation for cheapest store
-        if (isCheapest) {
-          el.style.animation = 'pulse 1.5s infinite';
-          
-          // Add keyframes for pulse animation if not already added
-          if (!document.getElementById('pulse-animation')) {
-            const styleSheet = document.createElement('style');
-            styleSheet.id = 'pulse-animation';
-            styleSheet.textContent = `
-              @keyframes pulse {
-                0% {
-                  box-shadow: 0 0 0 0 rgba(15, 157, 88, 0.7);
-                }
-                70% {
-                  box-shadow: 0 0 0 10px rgba(15, 157, 88, 0);
-                }
-                100% {
-                  box-shadow: 0 0 0 0 rgba(15, 157, 88, 0);
-                }
-              }
-            `;
-            document.head.appendChild(styleSheet);
-          }
-        }
-        
-        // Create popup content
-        const popupHtml = `
-          <strong>${store.name}</strong><br>
-          ${store.address || ''}<br>
-          <em>${store.distance.toFixed(1)} miles away</em>
-          ${storeTotals[store.name] ? `<br><strong>Total: $${storeTotals[store.name].toFixed(2)}</strong>` : ''}
-          ${isCheapest ? '<br><strong style="color:#0F9D58">Best Value Store!</strong>' : ''}
-          ${isMilitaryCommissary(store.name) ? '<br><strong style="color:#2196F3">Military Commissary</strong>' : ''}
-        `;
-        
-        // Create the popup
-        const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(popupHtml);
-        
-        // Create the marker
-        const marker = new mapboxgl.Marker(el)
-          .setLngLat([store.longitude, store.latitude])
-          .setPopup(popup)
-          .addTo(mapRef);
-        
-        // Add click event to marker
-        el.addEventListener('click', () => {
-          setSelectedStore(store);
-          const priceCardElement = document.getElementById(`price-card-${store.id}`);
-          if (priceCardElement) {
-            priceCardElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
-        });
-        
-        // Save reference to marker
-        markers.current.push(marker);
-        
-        // Add coordinates for bounding box
-        coordinates.push([store.longitude, store.latitude]);
-      });
-      
-      // Fit map to include all markers
-      if (coordinates.length > 0) {
-        try {
-          const bounds = coordinates.reduce((bounds, coord) => {
-            return bounds.extend(coord as mapboxgl.LngLatLike);
-          }, new mapboxgl.LngLatBounds(coordinates[0], coordinates[0]));
-          
-          mapRef.fitBounds(bounds, {
-            padding: 50,
-            maxZoom: 13
-          });
-        } catch (error) {
-          console.error("Error fitting bounds:", error);
-        }
-      }
-    }
-  }, [processedStores, allPricesFetched, cheapestStoreIds, selectedStore, currentLocation, storeTotals]);
-  
-  // Separate effect to update markers only when prices/cheapest stores change
-  useEffect(() => {
-    const map = mapInstance.current;
-    if (!map || typeof map.loaded !== 'function' || !map.loaded() || !allPricesFetched) return;
-    
-    // Only update markers and popups when all prices are loaded
-    markers.current.forEach(marker => marker.remove());
-    markers.current = [];
-    
-    // Coordinates for bounding box calculation
-    const coordinates: [number, number][] = [];
-    
-    // Add current location marker if available
-    if (currentLocation) {
-      // Create a DOM element for the current location marker
-      const el = document.createElement('div');
-      el.className = 'current-location-marker';
-      el.style.backgroundColor = '#4285F4';
-      el.style.width = '24px';
-      el.style.height = '24px';
-      el.style.borderRadius = '50%';
-      el.style.border = '3px solid white';
-      el.style.boxShadow = '0 0 5px rgba(0,0,0,0.3)';
-      el.style.zIndex = '100';
-      
-      // Add the current location marker
-      const userMarker = new mapboxgl.Marker(el)
-        .setLngLat([currentLocation.lng, currentLocation.lat])
-        .setPopup(new mapboxgl.Popup().setHTML('<strong>Your Location</strong>'))
-        .addTo(map);
-      
-      markers.current.push(userMarker);
-      
-      // Add to coordinates for bounding box
-      coordinates.push([currentLocation.lng, currentLocation.lat]);
-    }
-    
-    // Add store markers
-    processedStores.forEach(store => {
-      const isCheapest = cheapestStoreIds.includes(store.name);
-      const isSelected = selectedStore && store.name === selectedStore.name;
-      
-      // Create a DOM element for the marker
-      const el = document.createElement('div');
-      el.className = 'store-marker';
-      el.style.width = isCheapest ? '22px' : '18px';
-      el.style.height = isCheapest ? '22px' : '18px';
-      el.style.backgroundColor = isCheapest ? '#0F9D58' : isSelected ? '#FFC107' : '#DB4437';
-      el.style.borderRadius = '50%';
-      el.style.border = '2px solid white';
-      el.style.boxShadow = '0 0 5px rgba(0,0,0,0.3)';
-      el.style.cursor = 'pointer';
-      
-      // Add pulsing animation for cheapest store
-      if (isCheapest) {
-        el.style.animation = 'pulse 1.5s infinite';
-        
-        // Add keyframes for pulse animation if not already added
-        if (!document.getElementById('pulse-animation')) {
-          const styleSheet = document.createElement('style');
-          styleSheet.id = 'pulse-animation';
-          styleSheet.textContent = `
-            @keyframes pulse {
-              0% {
-                box-shadow: 0 0 0 0 rgba(15, 157, 88, 0.7);
-              }
-              70% {
-                box-shadow: 0 0 0 10px rgba(15, 157, 88, 0);
-              }
-              100% {
-                box-shadow: 0 0 0 0 rgba(15, 157, 88, 0);
-              }
-            }
-          `;
-          document.head.appendChild(styleSheet);
-        }
-      }
-      
-      // Create popup content
-      const popupHtml = `
-        <strong>${store.name}</strong><br>
-        ${store.address || ''}<br>
-        <em>${store.distance.toFixed(1)} miles away</em>
-        ${storeTotals[store.name] ? `<br><strong>Total: $${storeTotals[store.name].toFixed(2)}</strong>` : ''}
-        ${isCheapest ? '<br><strong style="color:#0F9D58">Best Value Store!</strong>' : ''}
-        ${isMilitaryCommissary(store.name) ? '<br><strong style="color:#2196F3">Military Commissary</strong>' : ''}
-      `;
-      
-      // Create the popup
-      const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(popupHtml);
-      
-      // Create the marker
-      const marker = new mapboxgl.Marker(el)
-        .setLngLat([store.longitude, store.latitude])
-        .setPopup(popup)
-        .addTo(map);
-      
-      // Add click event to marker
-      el.addEventListener('click', () => {
-        setSelectedStore(store);
-        const priceCardElement = document.getElementById(`price-card-${store.id}`);
-        if (priceCardElement) {
-          priceCardElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      });
-      
-      // Save reference to marker
-      markers.current.push(marker);
-      
-      // Add coordinates for bounding box
-      coordinates.push([store.longitude, store.latitude]);
-    });
-  }, [storeTotals, cheapestStoreIds, allPricesFetched, processedStores, currentLocation, selectedStore]);
-  
-  // Compute the cheapest stores for each individual item
-  useEffect(() => {
-    if (items.length === 0 || limitedStores.length === 0) {
-      setCheapestItemStores({});
-      return;
-    }
-    
-    const itemCheapestStores: Record<string, string[]> = {};
-    
-    for (const item of items) {
-      if (!prices[item]) continue;
-      
-      let lowestPrice = Infinity;
-      let cheapestStores: string[] = [];
-      
-      for (const store of limitedStores) {
-        const price = prices[item]?.[store.name]?.price;
-        if (typeof price === 'number') {
-          if (price < lowestPrice) {
-            lowestPrice = price;
-            cheapestStores = [store.name];
-          } else if (price === lowestPrice) {
-            cheapestStores.push(store.name);
-          }
-        }
-      }
-      
-      if (cheapestStores.length > 0) {
-        itemCheapestStores[item] = cheapestStores;
-      }
-    }
-    
-    setCheapestItemStores(itemCheapestStores);
-  }, [prices, limitedStores, items]);
-
-  // Function to get store total price
+  // Get the total price for a store (used in UI)
   const getTotalForStore = (storeName: string) => {
     let total = 0;
-    for (const item of items) {
-      const price = prices[item]?.[storeName]?.price;
+    
+    for (const itemObj of items) {
+      const itemName = typeof itemObj === 'string' ? itemObj : itemObj.name;
+      const price = prices[itemName]?.[storeName]?.price;
       if (typeof price === 'number') {
         total += price;
       }
     }
+    
     return total;
   };
 
-  const handleSelectStore = (store: Store) => {
-    setSelectedStore(store);
-    
-    if (mapInstance.current) {
-      mapInstance.current.flyTo({
-        center: [store.longitude, store.latitude],
-        zoom: 14,
-        duration: 1000
-      });
-      
-      // Find and toggle the popup for this store
-      const marker = markers.current.find(m => {
-        const lngLat = m.getLngLat();
-        return lngLat.lng === store.longitude && lngLat.lat === store.latitude;
-      });
-      
-      if (marker) {
-        marker.togglePopup();
-      }
+  const handleRequestLocation = () => {
+    if (onRequestLocation) {
+      onRequestLocation();
+      setLocationRequested(true);
     }
   };
+  
+  // ... rest of the component code ...
 
-  if (stores.length === 0) {
     return (
-      <Box sx={{ p: 3 }}>
-        {isLocatingStores ? (
-          <Paper 
-            elevation={2} 
-            sx={{ 
-              p: 3, 
-              display: 'flex', 
-              flexDirection: 'column', 
-              alignItems: 'center',
-              gap: 2,
-              maxWidth: 500,
-              mx: 'auto'
-            }}
-          >
-            <Typography variant="h6" align="center">
-              Finding Stores Near You
+    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h5" component="h2">
+            Compare Stores {loading && <CircularProgress size={20} sx={{ ml: 2 }} />}
             </Typography>
-            <Typography variant="body2" align="center" color="text.secondary" sx={{ mb: 1 }}>
-              Searching for grocery stores, warehouse clubs, and military commissaries in your area...
-            </Typography>
-            <LinearProgress 
-              sx={{ width: '100%', height: 8, borderRadius: 4 }} 
-              color="primary"
-            />
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-              <CircularProgress size={20} />
-              <Typography variant="body2" color="text.secondary">
-                Please wait a moment...
-              </Typography>
-            </Box>
-          </Paper>
-        ) : locationRequested ? (
-        <Typography variant="body1" align="center" color="text.secondary">
-            No stores found. Try entering a zip code to find stores near you.
-        </Typography>
-        ) : (
-          <Paper 
-            elevation={2} 
-            sx={{ 
-              p: 3, 
-              display: 'flex', 
-              flexDirection: 'column', 
-              alignItems: 'center',
-              gap: 2,
-              maxWidth: 500,
-              mx: 'auto'
-            }}
-          >
-            <LocationOnIcon color="primary" sx={{ fontSize: 40 }} />
-            <Typography variant="h6" align="center">
-              Find Stores Near You
-            </Typography>
-            <Typography variant="body2" align="center" color="text.secondary" sx={{ mb: 1 }}>
-              We need your location to show prices at stores near you.
-            </Typography>
+          <ButtonGroup variant="outlined" size="small">
             <Button 
-              variant="contained" 
-              color="primary" 
-              startIcon={<LocationOnIcon />}
-              onClick={handleRequestLocation}
-              fullWidth
+              onClick={() => setMapOpen(!mapOpen)}
+              startIcon={mapOpen ? <ViewListIcon /> : <MapIcon />}
             >
-              Share My Location
+              {mapOpen ? 'Hide Map' : 'Show Map'}
             </Button>
-            <Typography variant="caption" align="center" color="text.secondary">
-              Or use the zip code search above to find stores manually
-            </Typography>
-          </Paper>
+            <Button onClick={handleRequestLocation} disabled={isLocatingStores}>
+              <RefreshIcon fontSize="small" />
+            </Button>
+          </ButtonGroup>
+      </Box>
+        
+        {/* Add batch processing controls here */}
+        {batchProcessingControls}
+        
+        {/* Request location if needed */}
+        {!currentLocation && (
+          <Alert 
+            severity="info" 
+            action={
+              <Button 
+                color="inherit" 
+                size="small" 
+                onClick={onRequestLocation}
+                disabled={isLocatingStores}
+              >
+                {isLocatingStores ? 'Finding...' : 'Enable Location'}
+              </Button>
+            }
+          >
+            Enable location services to find nearby stores
+          </Alert>
         )}
-      </Box>
-    );
-  }
-
-  if (items.length === 0) {
-    return (
-      <Box sx={{ p: 3 }}>
-        <Typography variant="body1" align="center" color="text.secondary">
-          Add items to your shopping list to compare prices across stores.
-        </Typography>
-      </Box>
-    );
-  }
-
-  return (
-    <Box sx={{ width: '100%' }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h5" component="h2">
-          Price Comparison
-        </Typography>
-      </Box>
-      
-      {items.length === 0 ? (
-        <Typography variant="body1">
-          Add items to your list to see price comparisons
-        </Typography>
-      ) : limitedStores.length === 0 ? (
-      <Box sx={{ mb: 3 }}>
-          {isLocatingStores ? (
-            <Paper 
-              elevation={2} 
-              sx={{ 
-                p: 3, 
-                display: 'flex', 
-                flexDirection: 'column', 
-                alignItems: 'center',
-                gap: 2
-              }}
-            >
-              <Typography variant="h6" align="center">
-                Finding Stores Near You
-              </Typography>
-              <Typography variant="body2" align="center" color="text.secondary" sx={{ mb: 1 }}>
-                Searching for grocery stores, warehouse clubs, and military commissaries in your area...
-              </Typography>
-              <LinearProgress 
-                sx={{ width: '100%', height: 8, borderRadius: 4 }} 
-                color="primary"
-              />
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-                <CircularProgress size={20} />
-        <Typography variant="body2" color="text.secondary">
-                  Please wait a moment...
-        </Typography>
-              </Box>
-            </Paper>
-          ) : (
-            <Typography variant="body1" sx={{ mb: 2 }}>
-              No stores found nearby. Try entering your zip code or enabling location services.
-            </Typography>
-          )}
-        </Box>
-      ) : (
-        <>
+        
           {/* Map Section */}
-          <Box sx={{ mb: 4 }}>
-            <Paper elevation={2} sx={{ borderRadius: 2, overflow: 'hidden' }}>
-              <Box
-                ref={mapRef}
+        {mapOpen && currentLocation && (
+          <Box sx={{ height: 300, mb: 3, borderRadius: 1, overflow: 'hidden' }} ref={mapRef} />
+        )}
+        
+        {/* Store List Section */}
+        {stores.length > 0 && (
+          <Grid container spacing={2}>
+            {/* Store List */}
+            <Grid item xs={12} md={5}>
+              <List
                 sx={{
-                  width: '100%',
-                  height: '350px',
-                }}
-              />
-            </Paper>
-            {!allPricesFetched && (
-              <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'center' }}>
-                <CircularProgress size={16} />
-                <Typography variant="body2" color="text.secondary">
-                  Fetching all prices to update map...
-                </Typography>
-              </Box>
-            )}
-      </Box>
-      
-          {/* Price Comparison Section */}
-          <Box>
-            <Typography variant="h6" gutterBottom>
-              Prices at {limitedStores.length} Nearby Stores
-            </Typography>
-            
-            {limitedStores.map((store) => (
-              <Card 
-                key={store.name} 
-                id={`price-card-${store.id}`}
-                sx={{ 
-                  mb: 2, 
-                  borderLeft: cheapestStoreIds.includes(store.name) ? '4px solid' : '1px solid',
-                  borderLeftColor: cheapestStoreIds.includes(store.name) ? 'success.main' : 
-                    isMilitaryCommissary(store.name) ? 'info.main' : 'divider',
-                  bgcolor: isMilitaryCommissary(store.name) ? 'info.50' : 'background.paper'
+                  maxHeight: 600,
+                  overflow: 'auto',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  borderRadius: 1,
                 }}
               >
-                <CardContent>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-                    <Typography 
-                      variant="h6" 
-                      component="h3"
-                      color={isMilitaryCommissary(store.name) ? 'info.dark' : 
-                            cheapestStoreIds.includes(store.name) ? 'success.main' : 'text.primary'}
-                    >
+                {limitedStores.map((store) => {
+                  const storeTotal = getTotalForStore(store.name);
+                  const isCheapest = cheapestStoreIds.includes(store.name);
+                  
+                  return (
+                    <React.Fragment key={store.place_id || store.name}>
+                      <ListItem
+                        button
+                        selected={expandedStore === store.name}
+                        onClick={() => setExpandedStore(expandedStore === store.name ? null : store.name)}
+                sx={{ 
+                          backgroundColor: isCheapest ? 'success.light' : undefined,
+                          '&.Mui-selected': {
+                            backgroundColor: isCheapest ? 'success.light' : undefined,
+                          }
+                        }}
+                      >
+                        <ListItemIcon>
+                          <StorefrontIcon color={isCheapest ? "success" : "primary"} />
+                        </ListItemIcon>
+                        <ListItemText
+                          primary={
+                            <Box component="span" sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <Typography variant="body1" component="span">
                       {store.name}
-                      {isMilitaryCommissary(store.name) && (
-                      <Chip
-                          label="Military" 
-                          size="small" 
-                          color="info" 
-                          sx={{ ml: 1, height: 20, fontSize: '0.7rem' }}
-                        />
-                      )}
-                      {cheapestStoreIds.includes(store.name) && (
-                        <Chip 
-                          label="Best Value" 
-                        size="small"
-                        color="success"
-                          sx={{ ml: 1, height: 20, fontSize: '0.7rem' }}
-                      />
-                    )}
                     </Typography>
+                              {storeTotal > 0 && (
                   <Typography 
-                      variant="h6" 
-                      color={cheapestStoreIds.includes(store.name) ? "success.main" : "primary.main"} 
-                      fontWeight="bold"
-                    >
-                      ${(storeTotals[store.name] || 0).toFixed(2)}
+                                  variant="body2" 
+                                  component="span" 
+                                  sx={{ 
+                                    fontWeight: 'bold',
+                                    color: isCheapest ? 'success.dark' : 'text.primary' 
+                                  }}
+                                >
+                                  ${storeTotal.toFixed(2)}
                   </Typography>
+                              )}
                   </Box>
-                  
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    {store.distance < 1 
-                      ? `${(store.distance * 5280).toFixed(0)} ft away` 
-                      : `${store.distance.toFixed(1)} mi away`}
-                    {store.address && ` • ${store.address}`}
+                          }
+                          secondary={
+                            <Typography variant="body2" component="span">
+                              {store.distance.toFixed(1)} mi • {store.vicinity || store.address}
                   </Typography>
-                  
-                  {/* Item prices */}
-                  <Box>
+                          }
+                        />
+                      </ListItem>
+                      
+                      {/* Expanded Store View */}
+                      {expandedStore === store.name && (
+                        <Box sx={{ pl: 4, pr: 2, pb: 2, bgcolor: 'background.paper' }}>
+                          <List dense disablePadding>
                     {items.map((item) => {
-                      const priceData = prices[item]?.[store.name];
-                      const isItemCheapest = cheapestItemStores[item]?.includes(store.name);
+                              const itemName = typeof item === 'string' ? item : item.name;
+                              const priceData = prices[itemName]?.[store.name];
                       
                       return (
-                        <Box
-                          key={`${store.name}-${item}`} 
-                          sx={{
-                            display: 'flex', 
-                            justifyContent: 'space-between', 
-                            alignItems: 'center',
-                            p: 1,
-                            mb: 1,
-                            borderRadius: 1,
-                            bgcolor: isItemCheapest ? 'success.50' : 'background.paper',
-                            border: '1px solid',
-                            borderColor: isItemCheapest ? 'success.light' : 'divider',
-                          }}
-                        >
-                          <Box sx={{ mr: 1, maxWidth: '70%' }}>
-                            <Typography variant="body2" fontWeight="medium">
-                            {item}
+                                <ListItem key={itemName} sx={{ py: 0.5 }}>
+                                  <ListItemText
+                                    primary={itemName}
+                                    secondary={
+                                      priceData ? (
+                                        <Box component="span" sx={{ display: 'flex', flexDirection: 'column' }}>
+                                          <Typography variant="body2" component="span" sx={{ fontWeight: 'bold' }}>
+                                            ${priceData.price.toFixed(2)}
                           </Typography>
-                            {priceData && priceData.productName && priceData.productName !== item && (
-                              <Typography variant="caption" color="text.secondary" display="block" sx={{ fontWeight: 'medium' }}>
+                                          {priceData.productName !== itemName && (
+                                            <Typography variant="caption" component="span">
                                 {priceData.productName}
                               </Typography>
                             )}
-                            {priceData && priceData.fullStoreName && (
-                              <Typography variant="caption" color="text.secondary" display="block">
-                                {priceData.fullStoreName}
-                                {priceData.rating && priceData.reviewCount && (
-                                  <span> • {priceData.rating}★ ({priceData.reviewCount})</span>
-                                )}
-                              </Typography>
-                            )}
-                            {priceData && priceData.returnPolicy && (
-                              <Typography variant="caption" color="text.secondary" display="block">
-                                {priceData.returnPolicy}
-                              </Typography>
-                            )}
-                            {priceData && priceData.availability && (
-                              <Typography variant="caption" color="primary.main" display="block">
-                                {priceData.availability}
-                              </Typography>
+                                          {priceData.isEstimate && (
+                                            <Chip size="small" label="Estimate" variant="outlined" sx={{ mt: 0.5 }} />
                             )}
                           </Box>
-                          
-                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          {priceData ? (
-                              <Box sx={{ textAlign: 'right' }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                  <Typography 
-                                    variant="body1" 
-                                    fontWeight="bold" 
-                                    color={isItemCheapest ? 'success.main' : 'text.primary'}
-                                  >
-                                  ${priceData.price.toFixed(2)}
-                                    {priceData.priceWas && (
-                                      <Typography 
-                                        component="span" 
-                                        variant="caption" 
-                                        color="text.secondary" 
-                                        sx={{ textDecoration: 'line-through', ml: 0.5 }}
-                                      >
-                                        ${priceData.priceWas.toFixed(2)}
-                                      </Typography>
-                                    )}
-                                </Typography>
-                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, ml: 0.5 }}>
-                                    <Tooltip title={
-                                      priceData.source === 'google-shopping' 
-                                        ? "Price found on Google Shopping" 
-                                        : priceData.source === 'google-ai' 
-                                        ? "Price found via Google Search with AI" 
-                                        : priceData.source === 'ai-fallback' 
-                                        ? "AI estimated price based on market data" 
-                                        : priceData.source === 'html-extracted'
-                                        ? "Actual price extracted from store's website"
-                                        : priceData.source === 'client-fallback'
-                                        ? "Estimated price based on market averages"
-                                        : "Fallback price estimate"
-                                    }>
-                                    <Chip 
-                                        label={
-                                          priceData.source === 'google-shopping' 
-                                            ? "Shopping" 
-                                            : priceData.source === 'google-ai' 
-                                            ? "Google" 
-                                            : priceData.source === 'ai-fallback' 
-                                            ? "AI" 
-                                            : priceData.source === 'html-extracted'
-                                            ? "Store"
-                                            : priceData.source === 'client-fallback'
-                                            ? "Estimated"
-                                            : "Fallback"
-                                        } 
-                                      size="small" 
-                                        color={
-                                          priceData.source === 'google-shopping'
-                                            ? "secondary"
-                                            : priceData.source === 'google-ai' || priceData.source === 'html-extracted'
-                                            ? "success" 
-                                            : priceData.source === 'ai-fallback' 
-                                            ? "primary" 
-                                            : "warning"
-                                        }
-                                        sx={{ 
-                                          height: 20, 
-                                          fontSize: '0.7rem',
-                                          backgroundColor: priceData.source === 'google-shopping' 
-                                            ? theme => theme.palette.secondary.main
-                                            : priceData.source === 'html-extracted' 
-                                            ? theme => theme.palette.success.light
-                                            : undefined,
-                                          color: priceData.source === 'google-shopping' ? 'white' : undefined
-                                        }}
-                                    />
-                                  </Tooltip>
-                                  {isItemCheapest && (
-                                    <Tooltip title={`This store has the lowest price for ${item} among all stores`}>
-                                      <Chip
-                                        label="Best Price"
-                                        size="small"
-                                          color="success"
-                                        icon={<StarIcon sx={{ fontSize: '0.8rem' }} />}
-                                        sx={{ 
-                                          height: 20, 
-                                          fontSize: '0.7rem',
-                                          fontWeight: 'bold',
-                                            bgcolor: theme => theme.palette.success.main,
-                                          color: 'white',
-                                          '& .MuiChip-icon': { 
-                                            color: 'inherit',
-                                            marginLeft: '2px',
-                                            marginRight: '-4px'
-                                          }
-                                        }}
-                                      />
-                                    </Tooltip>
-                                  )}
+                                      ) : (
+                                        <FetchPriceOnDemand
+                                          item={itemName}
+                                          store={store.name}
+                                          onPriceReceived={(result) => {
+                                            if (result) {
+                                              const newPrices = {...prices};
+                                              if (!newPrices[itemName]) {
+                                                newPrices[itemName] = {};
+                                              }
+                                              newPrices[itemName][store.name] = result;
+                                              setPrices(newPrices);
+                                            }
+                                          }}
+                                        />
+                                      )
+                                    }
+                                  />
+                                </ListItem>
+                              );
+                            })}
+                          </List>
                                 </Box>
-                              </Box>
-                            </Box>
+                      )}
+                      <Divider />
+                    </React.Fragment>
+                  );
+                })}
+              </List>
+            </Grid>
+            
+            {/* Price Comparison Matrix */}
+            <Grid item xs={12} md={7}>
+              <TableContainer component={Paper} sx={{ maxHeight: 600, overflow: 'auto' }}>
+                <Table stickyHeader size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Item</TableCell>
+                      {limitedStores.slice(0, 5).map(store => (
+                        <TableCell key={store.place_id || store.name} align="right">
+                          {store.name}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {items.map((item) => {
+                      const itemName = typeof item === 'string' ? item : item.name;
+                      
+                      return (
+                        <TableRow key={itemName}>
+                          <TableCell component="th" scope="row">
+                            {itemName}
+                          </TableCell>
+                          {limitedStores.slice(0, 5).map(store => {
+                            const priceData = prices[itemName]?.[store.name];
+                            
+                            return (
+                              <TableCell key={store.place_id || store.name} align="right">
+                                {priceData ? (
+                                  <Tooltip 
+                                    title={priceData.isEstimate ? 'Estimated price' : priceData.productName}
+                                    arrow
+                                  >
+                                    <Typography
+                                      variant="body2"
+                                      sx={{
+                                        fontWeight: priceData.isEstimate ? 'normal' : 'bold',
+                                        fontStyle: priceData.isEstimate ? 'italic' : 'normal'
+                                      }}
+                                    >
+                                      ${priceData.price.toFixed(2)}
+                                    </Typography>
+                                  </Tooltip>
                           ) : (
                             <FetchPriceOnDemand 
-                              item={item} 
+                                    item={itemName}
                               store={store.name} 
                               onPriceReceived={(result) => {
                                 if (result) {
                                   const newPrices = {...prices};
-                                  if (!newPrices[item]) {
-                                    newPrices[item] = {};
+                                        if (!newPrices[itemName]) {
+                                          newPrices[itemName] = {};
                                   }
-                                  newPrices[item][store.name] = result;
+                                        newPrices[itemName][store.name] = result;
                                   setPrices(newPrices);
                                 }
                               }}
                             />
                           )}
-                          </Box>
-                        </Box>
+                              </TableCell>
                       );
                     })}
-                  </Box>
-                </CardContent>
-              </Card>
-            ))}
-          </Box>
-        </>
-      )}
-    </Box>
+                        </TableRow>
+                      );
+                    })}
+                    {/* Totals Row */}
+                    <TableRow sx={{ '& th, & td': { fontWeight: 'bold', bgcolor: 'action.hover' } }}>
+                      <TableCell>TOTAL</TableCell>
+                      {limitedStores.slice(0, 5).map(store => (
+                        <TableCell key={`total-${store.place_id || store.name}`} align="right">
+                          ${getTotalForStore(store.name).toFixed(2)}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Grid>
+          </Grid>
+        )}
+      </Paper>
+    </Container>
   );
 };
 

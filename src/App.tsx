@@ -1,10 +1,16 @@
 import { useState, useEffect } from "react";
 import { ThemeProvider, useTheme } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
-import { Box, Container, Alert, Snackbar, useMediaQuery, Button, TextField, Grid, Typography, Toolbar } from "@mui/material";
+import { Box, Container, Alert, Snackbar, useMediaQuery, Button, TextField, Grid, Typography, Toolbar, Paper } from "@mui/material";
+import {
+  Refresh as RefreshIcon,
+  ViewList as ViewListIcon,
+  Map as MapIcon
+} from "@mui/icons-material";
 import theme from "./theme";
 import GroceryList from "./components/GroceryList";
 import StoreComparison from "./components/StoreComparison";
+import BestPricesFinder from "./components/BestPricesFinder";
 import Header from "./components/Header";
 import type { Store } from "./types/store";
 import { findNearbyStores } from "./services/places";
@@ -35,6 +41,7 @@ function App() {
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
   const [isLocatingStores, setIsLocatingStores] = useState(false);
   const [cheapestStore, setCheapestStore] = useState<Store | null>(null);
+  const [mapFirst, setMapFirst] = useState(true);
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -106,177 +113,110 @@ function App() {
         );
       });
 
-      const location = {
-        lat: result[0].geometry.location.lat(),
-        lng: result[0].geometry.location.lng()
-      };
-      
-      console.log("Zip code location:", location);
-      setCurrentLocation(location);
-
-      console.log("Searching for stores near zip code location");
-      const nearbyStores = await findNearbyStores(location.lat, location.lng);
-      console.log(`Found ${nearbyStores.length} stores near zip code location`);
-
-      // Sort stores by distance and ensure we're keeping all stores
-      const sortedStores = [...nearbyStores].sort((a, b) => a.distance - b.distance);
-      console.log("Store names received:", sortedStores.map(store => store.name).join(", "));
-      setStores(sortedStores);
+      // ... rest of the function ...
     } catch (err) {
-      console.error("Zip code search error:", err);
-      setError(err instanceof Error ? err.message : "Failed to find location from zip code");
+      console.error("Geocoding error:", err);
+      setError(err instanceof Error ? err.message : "Failed to search by zip code");
     } finally {
       setIsLocatingStores(false);
     }
-  };
-
-  const handleSearchStores = async (
-    query: string,
-    location: { lat: number; lng: number }
-  ) => {
-    setIsLocatingStores(true);
-    try {
-      console.log("Searching for stores at location:", location);
-      const nearbyStores = await findNearbyStores(location.lat, location.lng);
-      console.log(`Found ${nearbyStores.length} nearby stores`);
-      
-      // Sort stores by distance and make sure we keep all stores
-      const sortedStores = [...nearbyStores].sort((a, b) => a.distance - b.distance);
-      console.log("Store names received:", sortedStores.map(store => store.name).join(", "));
-      setStores(sortedStores);
-    } catch (err) {
-      console.error("Store search error:", err);
-      setError(err instanceof Error ? err.message : "Failed to search stores");
-    } finally {
-      setIsLocatingStores(false);
-    }
-  };
-
-  const handleAddItem = (name: string) => {
-    // Normalize item name (trim and lowercase for comparison)
-    const normalizedName = name.trim();
-    
-    // Don't add empty items
-    if (!normalizedName) return;
-    
-    // Check if item already exists (case insensitive)
-    const alreadyExists = items.some(item => 
-      item.name.toLowerCase() === normalizedName.toLowerCase()
-    );
-    
-    // Only add if it doesn't exist
-    if (!alreadyExists) {
-      setItems([...items, { id: Date.now(), name: normalizedName }]);
-    } else {
-      // Optionally show an error message
-      setError(`"${normalizedName}" is already in your list`);
-    }
-  };
-
-  const handleDeleteItem = (id: number) => {
-    setItems(items.filter((item) => item.id !== id));
-  };
-
-  const handleError = (errorMessage: string) => {
-    setError(errorMessage);
   };
 
   const handleStoreSelect = (store: Store) => {
     setSelectedStore(store);
+    setCheapestStore(store);
   };
 
-  const handleCheapestStore = (store: Store | null) => {
-    setCheapestStore(store);
+  const handleAddItem = (itemName: string) => {
+    const newItem: GroceryItem = {
+      id: Date.now(),
+      name: itemName
+    };
+    setItems(prevItems => [...prevItems, newItem]);
   };
 
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Box
-        sx={{
-          minHeight: "100vh",
-          bgcolor: "background.default",
-          display: "flex",
-          flexDirection: "column"
-        }}
-      >
+      <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         <Header />
-        <Toolbar />
-
-        <Container maxWidth="lg" sx={{ flexGrow: 1, py: 2 }}>
-          <Snackbar
-            open={!!error}
-            autoHideDuration={6000}
-            onClose={() => setError(null)}
-          >
-            <Alert severity="error" onClose={() => setError(null)}>
-              {error}
-            </Alert>
-          </Snackbar>
-
-          <Box>
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={4}>
-                <GroceryList
-                  items={items}
+        
+        <Container maxWidth="lg" sx={{ flex: 1, py: 4 }}>
+          <Grid container spacing={3}>
+            {/* Left Column - Grocery List and Location Input */}
+            <Grid item xs={12} md={4}>
+              <Paper sx={{ p: 3, mb: 3 }}>
+                <GroceryList 
+                  items={items} 
                   onAddItem={handleAddItem}
-                  onDeleteItem={handleDeleteItem}
+                  onRemoveItem={(id) => setItems(items.filter(item => item.id !== id))}
                 />
-              </Grid>
-              <Grid item xs={12} md={8}>
-                <StoreComparison
-                  items={items.map(item => item.name)}
-                  stores={stores}
-                  onError={handleError}
-                  isLocatingStores={isLocatingStores}
-                  onCheapestStore={handleCheapestStore}
-                  onRequestLocation={getCurrentLocation}
-                  currentLocation={currentLocation}
-                />
-              </Grid>
+              </Paper>
+
+              <Paper sx={{ p: 3 }}>
+                <Typography variant="h6" gutterBottom>
+                  Find Stores
+                </Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={12}>
+                    <Button
+                      fullWidth
+                      variant="contained"
+                      onClick={getCurrentLocation}
+                      disabled={isLocatingStores}
+                      startIcon={<RefreshIcon />}
+                    >
+                      {isLocatingStores ? "Locating..." : "Use Current Location"}
+                    </Button>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      label="Or enter zip code"
+                      value={zipCode}
+                      onChange={(e) => setZipCode(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && searchByZipCode()}
+                    />
+                  </Grid>
+                </Grid>
+              </Paper>
             </Grid>
 
-            <Box sx={{ mt: 3 }}>
-              {currentLocation ? (
-                <Button
-                  variant="outlined"
-                  onClick={() => getCurrentLocation()}
-                  disabled={isLocatingStores}
-                >
-                  Refresh stores near me
-                </Button>
-              ) : (
-                <Button
-                  variant="contained"
-                  onClick={() => getCurrentLocation()}
-                  disabled={isLocatingStores}
-                >
-                  Find stores near me
-                </Button>
-              )}
-
-              <Box sx={{ mt: 2, display: "flex", alignItems: "center", gap: 1 }}>
-                <TextField
-                  label="Or search by zip code"
-                  variant="outlined"
-                  size="small"
-                  value={zipCode}
-                  onChange={(e) => setZipCode(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") searchByZipCode();
-                  }}
+            {/* Middle Column - Best Prices Finder */}
+            <Grid item xs={12} md={4}>
+              <Paper sx={{ p: 3, height: '100%' }}>
+                <BestPricesFinder
+                  shoppingList={items.map(item => item.name)}
+                  preferredStores={stores.map(store => store.name)}
+                  onSelectStore={handleStoreSelect}
                 />
-                <Button
-                  variant="outlined"
-                  onClick={searchByZipCode}
-                  disabled={isLocatingStores || !zipCode.trim()}
-                >
-                  Search
-                </Button>
-              </Box>
-            </Box>
-          </Box>
+              </Paper>
+            </Grid>
+
+            {/* Right Column - Store Comparison */}
+            <Grid item xs={12} md={4}>
+              <Paper sx={{ p: 3, height: '100%' }}>
+                <StoreComparison
+                  stores={stores}
+                  selectedStore={selectedStore}
+                  onSelectStore={setSelectedStore}
+                  cheapestStore={cheapestStore}
+                />
+              </Paper>
+            </Grid>
+          </Grid>
         </Container>
+
+        {/* Error Snackbar */}
+        <Snackbar
+          open={!!error}
+          autoHideDuration={6000}
+          onClose={() => setError(null)}
+        >
+          <Alert onClose={() => setError(null)} severity="error">
+            {error}
+          </Alert>
+        </Snackbar>
       </Box>
     </ThemeProvider>
   );
