@@ -61,10 +61,22 @@ const Map: React.FC<MapProps> = ({
 
   // Initialize map when component mounts and currentLocation is available
   useEffect(() => {
-    if (!mapRef.current || !currentLocation) {
-      if (!currentLocation) {
-        console.log("No current location available yet");
-      }
+    if (!mapRef.current) {
+      console.log("Map ref not available yet");
+      return;
+    }
+    
+    if (!currentLocation) {
+      console.log("No current location available yet");
+      setIsLoading(true);
+      return;
+    }
+    
+    // Validate user location coordinates
+    if (typeof currentLocation.lat !== 'number' || typeof currentLocation.lng !== 'number') {
+      console.error("Invalid coordinates in currentLocation:", currentLocation);
+      setError("Could not determine your location. Please try again.");
+      setIsLoading(false);
       return;
     }
     
@@ -203,15 +215,20 @@ const Map: React.FC<MapProps> = ({
       
       // Create the popup
       const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(popupHtml);
-      // Use a safe type assertion for id
       const storeId = (store.id || store.place_id || '') as string;
       popups.current[storeId] = popup;
       
-      // Create the marker
-      // Use default coordinates if missing
-      const lng = typeof store.longitude === 'number' ? store.longitude : 0;
-      const lat = typeof store.latitude === 'number' ? store.latitude : 0;
+      // Skip stores without valid coordinates
+      if (typeof store.longitude !== 'number' || typeof store.latitude !== 'number') {
+        console.warn(`Store ${store.name} is missing valid coordinates - skipping marker`);
+        return;
+      }
       
+      // After validation, these are definitely numbers
+      const lng: number = store.longitude;
+      const lat: number = store.latitude;
+      
+      // Create the marker with actual coordinates
       const marker = new mapboxgl.Marker(el)
         .setLngLat([lng, lat])
         .setPopup(popup)
@@ -230,10 +247,8 @@ const Map: React.FC<MapProps> = ({
         cheapestMarkerRef.current = marker;
       }
       
-      // Add coordinates for bounding box
-      if (typeof store.longitude === 'number' && typeof store.latitude === 'number') {
-        coordinates.push([store.longitude, store.latitude]);
-      }
+      // Add coordinates for bounding box - using validated coordinates
+      coordinates.push([lng, lat]);
     });
     
     // Fit map to include all markers
@@ -248,10 +263,12 @@ const Map: React.FC<MapProps> = ({
       });
       
       // If there's a cheapest store, zoom to it after a delay
-      if (cheapestStore && cheapestMarkerRef.current) {
-        // Use default coordinates if missing
-        const cheapestLng = typeof cheapestStore.longitude === 'number' ? cheapestStore.longitude : 0;
-        const cheapestLat = typeof cheapestStore.latitude === 'number' ? cheapestStore.latitude : 0;
+      if (cheapestStore && cheapestMarkerRef.current && 
+          typeof cheapestStore.longitude === 'number' && 
+          typeof cheapestStore.latitude === 'number') {
+        // After validation, these are definitely numbers
+        const cheapestLng: number = cheapestStore.longitude;
+        const cheapestLat: number = cheapestStore.latitude;
         
         setTimeout(() => {
           map.flyTo({
