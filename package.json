@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "backend": ". ~/.nvm/nvm.sh && nvm use 18 && node server.js",
-    "dev:all": ". ~/.nvm/nvm.sh && nvm use 18 && concurrently \"npm run dev\" \"node server.js\"",
+    "dev:all": "bash -c 'unset npm_config_prefix && . ~/.nvm/nvm.sh && nvm use 18 && concurrently \"npm run dev\" \"node server.js\"'",
     "build": "tsc -b && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
