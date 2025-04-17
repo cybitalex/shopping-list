@@ -1139,8 +1139,8 @@ const StoreComparison: React.FC<StoreComparisonProps> = ({
             <Box sx={{ textAlign: 'center', p: 2 }}>
               <Typography variant="body1" color="text.secondary">
                 Enable location services to see nearby stores
-              </Typography>
-            </Box>
+                              </Typography>
+                          </Box>
           )}
           
           {isLocatingStores && (
@@ -1164,8 +1164,8 @@ const StoreComparison: React.FC<StoreComparisonProps> = ({
                 Finding Nearby Stores...
               </Typography>
               <LinearProgress sx={{ width: '60%', mt: 2 }} />
-            </Box>
-          )}
+                                </Box>
+                      )}
         </Box>
       </Box>
       

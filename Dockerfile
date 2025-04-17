@@ -1,54 +1,30 @@
 # Build stage
-FROM node:20-alpine AS build
+FROM node:18-alpine as build
 
-# Install dependencies for Playwright
-RUN apk add --no-cache \
-    chromium \
-    nss \
-    freetype \
-    freetype-dev \
-    harfbuzz \
-    ca-certificates \
-    ttf-freefont \
-    nodejs \
-    yarn
-
-# Set environment variables for Playwright
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
-
-# Create app directory
+# Set working directory
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy package files and install dependencies
+COPY package.json package-lock.json ./
+RUN npm ci
 
-# Install dependencies
-RUN npm install --legacy-peer-deps
-
-# Copy app source
+# Copy remaining source code
 COPY . .
 
-# Build app
+# Build the application
 RUN npm run build
 
-# Production stage
+# Production image
 FROM nginx:alpine
 
-# Copy built assets from build stage
+# Copy built assets from the build stage
 COPY --from=build /app/dist /usr/share/nginx/html
 
-# Copy nginx configuration
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy custom NGINX configuration
+COPY nginx/nginx.conf /etc/nginx/conf.d/default.conf
 
-# Create directory for ssl certificates
-RUN mkdir -p /etc/letsencrypt
-
-# Expose ports
+# Expose port
 EXPOSE 80
-EXPOSE 443
 
-# Set environment variables
-ENV NODE_ENV=production
-
+# Start NGINX
 CMD ["nginx", "-g", "daemon off;"] 
