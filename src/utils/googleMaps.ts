@@ -31,7 +31,7 @@ const createHiddenMap = () => {
     center: { lat: 0, lng: 0 },
     zoom: 2,
     disableDefaultUI: true,
-    mapTypeId: google.maps.MapTypeId.ROADMAP
+    mapTypeId: 'roadmap' // Changed from google.maps.MapTypeId.ROADMAP
   });
 };
 
@@ -56,41 +56,29 @@ export const loadGoogleMaps = (apiKey: string): Promise<void> => {
       }
     });
 
-    if (window.google?.maps) {
-      try {
-        mapInstance = createHiddenMap();
-        
-        // Initialize the new Place API if available
-        if (window.google.maps.places.Place) {
-          placesClient = window.google.maps.places.Place;
-        } else {
-          console.warn('Google Maps Place API not available');
-        }
-        
-        resolve();
-      } catch (error) {
-        console.error('Error initializing maps:', error);
-        reject(error);
-      }
-      return;
-    }
-
     const loader = new Loader({
       apiKey,
       version: 'weekly',
-      libraries: ['places', 'geometry']
+      libraries: ['places', 'geometry'],
+      retries: 3,
+      language: 'en',
+      region: 'US'
     });
 
     loader.load()
-      .then((google) => {
+      .then(() => {
         try {
+          if (!window.google || !window.google.maps) {
+            throw new Error('Google Maps failed to load properly');
+          }
+          
           mapInstance = createHiddenMap();
           
           // Initialize the new Place API if available
-          if (google.maps.places.Place) {
-            placesClient = google.maps.places.Place;
+          if (window.google.maps.places?.Place) {
+            placesClient = window.google.maps.places.Place;
           } else {
-            console.warn('Google Maps Place API not available');
+            console.warn('Google Maps Place API not available, will use legacy API');
           }
           
           resolve();
@@ -124,12 +112,7 @@ interface PlaceSearchResponse {
 // Type definition for the searchNearby request based on current API
 interface SearchNearbyRequest {
   textQuery: string;
-  locationRestriction?: {
-    rectangle?: {
-      low: { latitude: number; longitude: number };
-      high: { latitude: number; longitude: number };
-    }
-  };
+  locationRestriction?: google.maps.Circle | google.maps.CircleLiteral;
   locationBias?: {
     circle?: {
       center: { lat: number; lng: number };
@@ -143,7 +126,7 @@ interface SearchNearbyRequest {
 export const searchNearbyStores = async (
   query: string,
   location: { lat: number; lng: number },
-  radius: number = 2000,
+  radius: number = 32186.9, // 20 miles in meters
   maxStores: number = 20
 ): Promise<any[]> => {
   if (!mapInstance) {
@@ -203,7 +186,7 @@ export const searchNearbyStores = async (
 const searchNearbyStoresLegacy = async (
   query: string,
   location: { lat: number; lng: number },
-  radius: number = 2000,
+  radius: number = 32186.9, // 20 miles in meters
   maxStores: number = 20
 ): Promise<any[]> => {
   console.warn('Using deprecated PlacesService - please update code to use new Place API');

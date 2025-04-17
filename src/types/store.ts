@@ -1,10 +1,19 @@
 export interface Store {
-  id: string;
+  id?: string;
+  place_id?: string;
   name: string;
-  address: string;
-  latitude: number;
-  longitude: number;
-  distance: number; // in miles
+  vicinity?: string;
+  distance: number;
+  latitude?: number;
+  longitude?: number;
   rating?: number;
   priceLevel?: number;
+  items?: Array<{
+    name: string;
+    price: number | null;
+    lastUpdated: string | null;
+    productName?: string;
+    isGenericName?: boolean;
+    productDetail?: string | null;
+  }>;
 }

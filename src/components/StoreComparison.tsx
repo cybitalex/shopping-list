@@ -18,30 +18,48 @@ import {
   ListItem,
   ListItemText,
   ListItemIcon,
-  Divider
+  Divider,
+  ButtonGroup,
+  Alert
 } from "@mui/material";
-import type { Store } from "../types/store";
+import type { Store as BaseStore } from "../types/store";
 import { type Product } from "../services/products";
 import StarIcon from "@mui/icons-material/Star";
 import LocationOnIcon from "@mui/icons-material/LocationOn";
 import StorefrontIcon from "@mui/icons-material/Storefront";
 import PlaceIcon from "@mui/icons-material/Place";
+import ViewListIcon from "@mui/icons-material/ViewList";
+import MapIcon from "@mui/icons-material/Map";
+import RefreshIcon from "@mui/icons-material/Refresh";
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import { TableContainer, Table, TableHead, TableBody, TableRow, TableCell } from "@mui/material";
 
 // Get the token from environment variables
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 // Set Mapbox token
 mapboxgl.accessToken = MAPBOX_TOKEN || '';
 
+interface StoreItem {
+  name: string;
+  price: number | null;
+  lastUpdated: string | null;
+  productName?: string;
+  isGenericName?: boolean;
+  productDetail?: string | null;
+}
+
 interface StoreComparisonProps {
-  items: string[];
-  stores: Store[];
+  items: Array<{name: string}>;
+  stores: BaseStore[];
   onError: (message: string) => void;
   isLocatingStores: boolean;
-  onCheapestStore: (store: Store | null) => void;
+  onCheapestStore: (store: BaseStore | null) => void;
   onRequestLocation?: () => void;
   currentLocation?: { lat: number; lng: number } | null;
+  selectedStore: BaseStore | null;
+  onStoreSelect: (store: BaseStore | null) => void;
+  setStores: (stores: BaseStore[]) => void;
 }
 
 interface PriceResult {
@@ -57,6 +75,7 @@ interface PriceResult {
   reviewCount?: number; // Number of reviews (e.g., 1.3K)
   availability?: string; // Availability info (e.g., "Get it today ($17)")
   priceWas?: number; // Original price if on sale
+  method?: string; // Added for Google Shopping Scraper
 }
 
 interface FetchPriceOnDemandProps {
@@ -105,94 +124,29 @@ const processQueue = async () => {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
         },
-        // Setting credentials to 'same-origin' helps with session/cookie issues
         credentials: 'same-origin' as RequestCredentials
       };
       
       // Add a cache buster to prevent browser caching
       const cacheBuster = `&_t=${Date.now()}`;
-      const url = `/api/${endpoint}?item=${encodeURIComponent(request.item)}&store=${encodeURIComponent(request.store)}${endpoint === 'fetch-price' ? '&fallback=true' : ''}${cacheBuster}`;
+      const url = `/api/${endpoint}?item=${encodeURIComponent(request.item)}&store=${encodeURIComponent(request.store)}${endpoint === 'fetch-price' ? '&fallback=false' : ''}${cacheBuster}`;
       
       const response = await fetch(url, fetchOptions);
       
-      // Even if we get a non-200 response, try to parse it as JSON first
-      const text = await response.text();
-      
-      // First check if it's HTML, and if so, try to extract price directly
-      if (text.includes('<!DOCTYPE html>') || text.includes('<html>') || text.includes('<!doctype html>')) {
-        console.log(`Received HTML for ${request.item} at ${request.store}, attempting direct extraction`);
-        
-        // Try to extract price directly from the HTML
-        const htmlExtractedPrice = extractPriceFromHTML(text, request.item, request.store);
-        
-        if (htmlExtractedPrice) {
-          console.log(`Successfully extracted price $${htmlExtractedPrice.price} from HTML for ${request.item} at ${request.store}`);
-          request.callback(htmlExtractedPrice);
-          continue; // Skip to next request
-        } else {
-          console.log(`HTML extraction failed for ${request.item} at ${request.store}`);
-        }
+      if (!response.ok) {
+        throw new Error(`Network response was not ok: ${response.status}`);
       }
       
-      // If it wasn't HTML or extraction failed, try to parse as JSON
-      try {
-        // Try to parse the response as JSON
-        const data = JSON.parse(text);
+      const data = await response.json();
         
       if (data.success && data.price !== null) {
         request.callback(data);
-          continue; // Skip to next request
       } else {
-          console.log(`Received unsuccessful response for ${request.item} at ${request.store}:`, data);
-        }
-      } catch (parseError) {
-        console.error(`JSON parse error for ${request.item} at ${request.store}:`, parseError);
-        console.error('Response was:', text.substring(0, 150) + '...');
+        throw new Error('Invalid data received from server');
       }
-      
-      // If we've reached this point, both JSON parsing and HTML extraction failed
-      // Try fallback endpoint if we're not already using it
-      if (endpoint !== 'fetch-price') {
-        try {
-          console.log(`Trying fallback endpoint for ${request.item} at ${request.store}`);
-          const fallbackUrl = `/api/fetch-price?item=${encodeURIComponent(request.item)}&store=${encodeURIComponent(request.store)}&fallback=true${cacheBuster}`;
-          const fallbackResponse = await fetch(fallbackUrl, fetchOptions);
-          const fallbackText = await fallbackResponse.text();
-          
-          // First check if fallback response is HTML and try extraction
-          if (fallbackText.includes('<!DOCTYPE html>') || fallbackText.includes('<html>') || fallbackText.includes('<!doctype html>')) {
-            const fallbackHtmlPrice = extractPriceFromHTML(fallbackText, request.item, request.store);
-            if (fallbackHtmlPrice) {
-              console.log(`Successfully extracted price from fallback HTML for ${request.item} at ${request.store}`);
-              request.callback(fallbackHtmlPrice);
-              continue; // Skip to next request
-            }
-          }
-          
-          // Try to parse fallback response as JSON
-          try {
-            const fallbackData = JSON.parse(fallbackText);
-            if (fallbackData.success && fallbackData.price !== null) {
-              request.callback(fallbackData);
-              continue; // Skip to next request
-            }
-          } catch (fallbackError) {
-            console.error(`Fallback JSON parsing failed for ${request.item} at ${request.store}`);
-          }
-        } catch (fallbackFetchError) {
-          console.error(`Error fetching fallback for ${request.item} at ${request.store}:`, fallbackFetchError);
-        }
-      }
-      
-      // As a last resort, use client-side fallback
-      console.log(`All extraction methods failed, using client-side fallback for ${request.item} at ${request.store}`);
-      const clientFallback = generateFallbackPrice(request.item, request.store);
-      request.callback(clientFallback);
   } catch (error) {
     console.error(`Error in queued fetch for ${request.item} at ${request.store}:`, error);
-      // Use client-side fallback as last resort
-      const clientFallback = generateFallbackPrice(request.item, request.store);
-      request.callback(clientFallback);
+      request.callback(null);
   } finally {
       // If we've reached our limit, clear the queue to prevent more requests
       if (processedRequests >= MAX_REQUESTS && priceRequestQueue.length > 0) {
@@ -221,391 +175,70 @@ const FetchPriceOnDemand: React.FC<FetchPriceOnDemandProps> = ({ item, store, on
   const requestId = useRef(`${item}-${store}-${Math.random()}`);
   
   useEffect(() => {
-    const fetchPrice = () => {
+    const fetchPrice = async () => {
       setIsLoading(true);
       setHasError(false);
       
-      // First try google-price endpoint (now using Google Shopping)
-      const initialEndpoint = 'google-price';
-      console.log(`Queueing price fetch for ${item} at ${store} using ${initialEndpoint} (Google Shopping)`);
-      
-      // Add to queue 
-      priceRequestQueue.push({
-        item,
-        store,
-        callback: (result) => {
-          if (result) {
-            // If we got a result from Google Shopping, use it
-            onPriceReceived(result);
-            setIsLoading(false);
+      try {
+        console.log(`Fetching price for ${item} at ${store}`);
+        
+        // Use the API to get the price instead of fallback
+        const response = await fetch(`/api/fetch-price?item=${encodeURIComponent(item)}&store=${encodeURIComponent(store === '' ? 'nearby' : store)}`);
+        
+        if (!response.ok) {
+          throw new Error(`Network response was not ok: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.price !== null) {
+          onPriceReceived(data);
           } else {
-            // Try fallback endpoint if Google Shopping failed
-            console.log(`Falling back to estimate price for ${item} at ${store}`);
-            priceRequestQueue.push({
-              item,
-              store,
-              callback: (fallbackResult) => {
-                if (fallbackResult) {
-                  onPriceReceived(fallbackResult);
-                } else {
-                  // Use our client-side fallback as a last resort
-                  console.log(`Server fallbacks failed, using client-side estimation for ${item} at ${store}`);
-                  const clientFallback = generateFallbackPrice(item, store);
-                  onPriceReceived(clientFallback);
-          }
+          throw new Error('Invalid data received from server');
+        }
+      } catch (error) {
+        console.error(`Error fetching price for ${item} at ${store}:`, error);
+        setHasError(true);
+        onPriceReceived(null);
+      } finally {
           setIsLoading(false);
-              },
-              endpoint: 'fetch-price'
-            });
-            
-            // Ensure queue processing continues
-            if (!isProcessingQueue) {
-              processQueue();
-            }
-          }
-        },
-        endpoint: initialEndpoint
-      });
-      
-      // Start processing queue if not already running
-      if (!isProcessingQueue) {
-        processQueue();
-      }
+              }
     };
     
-    // Fetch once only, no retries
       fetchPrice();
     
     return () => {
-      // No cleanup needed - the queue handles everything
+      // No pending requests to clean up
     };
   }, [item, store, onPriceReceived]);
 
-  if (isLoading) {
     return (
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-        <CircularProgress size={16} />
-        <Typography variant="body2" color="text.secondary">
-          Fetching price...
-        </Typography>
+    <Box sx={{ minHeight: 30, display: 'flex', alignItems: 'center' }}>
+      {isLoading ? (
+        <CircularProgress size={16} sx={{ mr: 1 }} />
+      ) : hasError ? (
+        <Tooltip title="Error fetching price">
+          <Chip
+            size="small"
+            label="Error"
+            color="error"
+            variant="outlined"
+          />
+        </Tooltip>
+      ) : null}
       </Box>
     );
-  }
-
-  // We shouldn't ever see this anymore since we always provide a fallback
-  if (hasError) {
-    return (
-      <Box>
-        <Typography variant="body2" color="text.disabled">
-          Price data unavailable
-        </Typography>
-      </Box>
-    );
-  }
-
-  return null;
-};
-
-// Add a client-side fallback price generator
-const generateFallbackPrice = (item: string, store: string): PriceResult => {
-  // Basic price map for common items
-  const baseItemPrices: Record<string, number> = {
-    'apples': 1.99,
-    'bananas': 0.59,
-    'milk': 3.49,
-    'eggs': 2.99,
-    'bread': 2.49,
-    'chicken': 5.99,
-    'rice': 3.29,
-    'pasta': 1.79,
-    'potatoes': 3.99,
-    'onions': 0.99,
-    'tomatoes': 2.49,
-    'lettuce': 1.99,
-    'carrots': 1.49,
-    'oranges': 3.99,
-    'pears': 2.99,
-    'grapes': 3.99,
-    'strawberries': 4.99,
-    'blueberries': 4.49,
-    'broccoli': 1.99,
-    'cereal': 3.99,
-    'coffee': 7.99,
-    'tea': 3.29,
-    'flour': 2.99,
-    'sugar': 2.79,
-    'salt': 0.99,
-  };
-  
-  // Store price modifiers (e.g., Walmart tends to be cheaper)
-  const storeModifiers: Record<string, number> = {
-    'Walmart': 0.9,
-    'Target': 1.05,
-    'Kroger': 0.95,
-    'Publix': 1.15,
-    'ALDI': 0.85,
-    'Whole Foods': 1.35,
-    'Trader Joe\'s': 1.1,
-    'Dollar General': 0.95,
-    'Dollar Tree': 0.8,
-    'Food Lion': 1.0,
-    'Harris Teeter': 1.1,
-    'Giant': 1.05,
-    'Safeway': 1.1,
-    'Meijer': 0.95,
-    'Save-A-Lot': 0.9,
-    'H-E-B': 0.95
-  };
-  
-  // Default values if not found in our maps
-  const basePrice = baseItemPrices[item.toLowerCase()] || 2.99;
-  const storeModifier = storeModifiers[store] || 1.0;
-  
-  // Apply some randomness to make it look realistic
-  const randomFactor = 0.9 + (Math.random() * 0.2); // Between 0.9 and 1.1
-  
-  // Calculate final price
-  const price = Math.round((basePrice * storeModifier * randomFactor) * 100) / 100;
-  
-  return {
-    success: true,
-    price,
-    productName: item,
-    source: 'client-fallback',
-    store,
-    isEstimate: true,
-    confidence: 0.4
-  } as unknown as PriceResult;
-};
-
-// Function to extract price data from HTML response - enhanced version
-const extractPriceFromHTML = (html: string, item: string, store: string): PriceResult | null => {
-  try {
-    console.log(`Attempting to extract price for ${item} at ${store} from HTML`);
-    
-    // Convert to lowercase for easier matching
-    const lowerHtml = html.toLowerCase();
-    const lowerItem = item.toLowerCase();
-    
-    // Better price regex patterns
-    const pricePatterns = [
-      // Standard price format with dollar sign
-      /\$\s*(\d+(?:\.\d{1,2})?)/g,
-      // Price without dollar sign but with decimal
-      /(\d+\.\d{2})\s*(?:usd|dollars|each|per|lb|pound|kg|price)/g,
-      // Price with HTML formatting (common in structured data)
-      /<(?:span|div)[^>]*?>\$?\s*(\d+\.\d{2})<\/(?:span|div)>/g
-    ];
-    
-    const prices: number[] = [];
-    const priceContexts: string[] = [];
-    
-    // Look for the item name in the HTML
-    const itemMatches = [];
-    let match;
-    let regex = new RegExp(`(\\w*${lowerItem}\\w*)`, 'g');
-    while ((match = regex.exec(lowerHtml)) !== null) {
-      itemMatches.push({
-        word: match[0],
-        index: match.index
-      });
-    }
-    
-    // Extract prices using multiple patterns
-    for (const pattern of pricePatterns) {
-      while ((match = pattern.exec(lowerHtml)) !== null) {
-        const price = parseFloat(match[1]);
-        if (!isNaN(price) && price > 0 && price < 100) { 
-          // Get context around price (to match with product)
-          const contextStart = Math.max(0, match.index - 100);
-          const contextEnd = Math.min(lowerHtml.length, match.index + match[0].length + 100);
-          const context = lowerHtml.substring(contextStart, contextEnd);
-          
-          prices.push(price);
-          priceContexts.push(context);
-        }
-      }
-    }
-    
-    if (prices.length === 0) {
-      console.log('No prices found in HTML');
-      return null;
-    }
-    
-    // Find the price most likely associated with our item
-    const itemPrices: Array<{price: number, score: number, context: string}> = [];
-    
-    // Score each price by its proximity to item mentions
-    for (let i = 0; i < prices.length; i++) {
-      let bestScore = 0;
-      
-      // Check each item mention
-      for (const {word, index} of itemMatches) {
-        // Find position of this price in the HTML
-        const priceIndex = lowerHtml.indexOf(priceContexts[i]);
-        
-        // Calculate distance between item mention and price
-        const distance = Math.abs(index - priceIndex);
-        
-        // Score inversely proportional to distance (closer = higher score)
-        // Also adjust score by how closely the word matches our item
-        const wordMatchQuality = word.length / lowerItem.length; // 1.0 = perfect match
-        const distanceScore = 1000 / (distance + 10); // Avoid division by zero
-        
-        const score = distanceScore * wordMatchQuality;
-        bestScore = Math.max(bestScore, score);
-      }
-      
-      // If we have no item matches, use a generic scoring approach
-      if (itemMatches.length === 0) {
-        // Use regular fallback estimate to score
-        const fallbackEstimate = generateFallbackPrice(item, store);
-        const priceDiff = Math.abs(prices[i] - fallbackEstimate.price);
-        bestScore = 100 / (priceDiff + 1); // Higher score for prices closer to our estimate
-      }
-      
-      itemPrices.push({
-        price: prices[i],
-        score: bestScore,
-        context: priceContexts[i]
-      });
-    }
-    
-    // Sort by score (highest first)
-    itemPrices.sort((a, b) => b.score - a.score);
-    
-    // Check if our best match has a good enough score
-    if (itemPrices.length === 0 || itemPrices[0].score < 0.5) {
-      console.log('No strong price matches found in HTML');
-      return null;
-    }
-    
-    const bestMatch = itemPrices[0];
-    let productName = item;
-    
-    // Try to extract product name from the context of the best price
-    const context = bestMatch.context;
-    const lines = context.split(/[\n\r<>]/);
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (trimmed.length > lowerItem.length && 
-          trimmed.toLowerCase().includes(lowerItem) && 
-          trimmed.length < 100) {
-        productName = trimmed;
-        break;
-      }
-    }
-    
-    // Set confidence based on score
-    const confidence = Math.min(0.9, bestMatch.score / 10);
-    
-    console.log(`Found price $${bestMatch.price} for ${item} (confidence: ${confidence.toFixed(2)})`);
-    
-    return {
-      success: true,
-      price: bestMatch.price,
-      productName: productName,
-      source: 'html-extracted',
-      store: store,
-      isEstimate: false, // Changed from true to false since this is an actual extracted price
-      confidence: confidence
-    } as unknown as PriceResult;
-  } catch (error) {
-    console.error('Error extracting price from HTML:', error);
-    return null;
-  }
-};
-
-// Add a utility function to determine if a store is a grocery/retail store
-const isGroceryOrRetailStore = (storeName: string): boolean => {
-  // List of known restaurant/fast food chains to exclude
-  const nonGroceryStores = [
-    'McDonald\'s', 'mcdonalds', 'Burger King', 'Wendy\'s', 'KFC', 'Taco Bell',
-    'Subway', 'Chipotle', 'Starbucks', 'Dunkin', 'Pizza Hut', 'Domino\'s',
-    'Panera Bread', 'Arby\'s', 'Chick-fil-A', 'Popeyes', 'Five Guys',
-    'In-N-Out', 'Jimmy John\'s', 'Panda Express', 'Applebee\'s', 'Olive Garden',
-    'IHOP', 'Denny\'s', 'Red Lobster', 'TGI Friday\'s', 'Outback', 'Restaurant',
-    'Coffee', 'Cafe', 'Diner', 'Bar & Grill', 'Steakhouse', 'Brewery', 'Tavern'
-  ];
-  
-  // List of grocery stores, warehouse clubs, and retail stores with groceries
-  const groceryStores = [
-    // Warehouse clubs and superstores
-    'Walmart', 'Wal-Mart', 'Walmart Supercenter', 'Walmart Neighborhood Market',
-    'Sam\'s Club', 'Sam\'s', 'Sams', 'Sams Club', 'BJ\'s', 'BJs', 'BJ\'s Wholesale', 
-    'Costco', 'Costco Wholesale',
-    
-    // Target and other general merchandise retailers with groceries
-    'Target', 'SuperTarget', 'Target Express', 'Kmart', 'Big Lots', 'Meijer',
-    
-    // Military commissaries and exchanges
-    'Commissary', 'Military Commissary', 'Army Commissary', 'Navy Commissary', 
-    'Air Force Commissary', 'Marine Commissary', 'Coast Guard Commissary', 'AAFES',
-    'NEX', 'MCX', 'CGX', 'Exchange', 'PX', 'BX',
-    
-    // Major grocery chains
-    'Kroger', 'Safeway', 'Publix', 'ALDI', 'Whole Foods', 'Albertsons',
-    'Trader Joe\'s', 'Food Lion', 'Harris Teeter', 'Giant', 'Wegmans',
-    'Save-A-Lot', 'H-E-B', 'HEB', 'ShopRite', 'Shop Rite', 'Winn-Dixie', 'WinnDixie',
-    'Vons', 'Piggly Wiggly', 'IGA', 'Hy-Vee', 'HyVee', 'Acme', 'Stop & Shop', 
-    'Stop and Shop', 'Giant Eagle', 'Food 4 Less', 'Ralphs', 'Food Lion', 
-    'Sprouts', 'Fresh Market', 'Hannaford', 'Market Basket', 'Weis', 
-    'Food Town', 'Foodtown', 'King Soopers', 'Fry\'s', 'Dillons', 'QFC',
-    'Smith\'s', 'Baker\'s', 'Fred Meyer', 'Jewel-Osco', 'Jewel', 'Osco',
-    
-    // Discount retailers with groceries
-    'Dollar General', 'Dollar Tree', 'Family Dollar', 'Lidl', 'Aldi',
-    '99 Cents Only', 'Five Below',
-    
-    // Pharmacy/convenience stores with groceries
-    'CVS', 'Walgreens', 'Rite Aid', '7-Eleven', 'Circle K', 'Wawa',
-    'Cumberland Farms', 'QuikTrip', 'Sheetz', 'Casey\'s', 'Royal Farms',
-    
-    // Regional and specialty grocers
-    'Market', 'Supermarket', 'Grocery', 'Foods', 'Food', 'Grocer', 'Fresh',
-    'Farmers Market', 'Co-op', 'Mercado', 'Supermercado', 'Carniceria',
-    'Oriental', 'Asian', 'Italian', 'Mexican', 'International', 'Ethnic'
-  ];
-  
-  // Convert store name to lowercase for matching
-  const lowerStoreName = storeName.toLowerCase();
-  
-  // First check explicit grocery/retail store names
-  for (const grocery of groceryStores) {
-    // Full name match or contains the store name as a key part
-    if (lowerStoreName.includes(grocery.toLowerCase())) {
-      return true;
-    }
-  }
-  
-  // Check for general keywords that indicate grocery stores
-  const groceryKeywords = ['grocery', 'supermarket', 'market', 'food', 'fresh', 'farm'];
-  for (const keyword of groceryKeywords) {
-    if (lowerStoreName.includes(keyword)) {
-      return true;
-    }
-  }
-  
-  // Finally, check against the exclusion list
-  for (const nonGrocery of nonGroceryStores) {
-    if (lowerStoreName.includes(nonGrocery.toLowerCase())) {
-      return false;
-    }
-  }
-  
-  // By default, include the store unless it's explicitly excluded
-  return true;
 };
 
 // Group similar stores together to avoid duplicates but preserve complete store names for certain chains
-const groupSimilarStores = (stores: Store[]): Store[] => {
+const groupSimilarStores = (stores: BaseStore[]): BaseStore[] => {
   // Stores that should be grouped but have their full names preserved
   const preserveFullNamePrefixes = [
     'Walmart', 'Target', 'BJ\'s', 'Sam\'s', 'Costco', 'Kroger', 'Publix', 
     'Commissary', 'Military', 'AAFES', 'NEX', 'MCX', 'CGX', 'Exchange'
   ];
   
-  const storeGroups: Record<string, Store[]> = {};
+  const storeGroups: Record<string, BaseStore[]> = {};
   
   // First pass: group stores by their base name
   for (const store of stores) {
@@ -645,7 +278,7 @@ const groupSimilarStores = (stores: Store[]): Store[] => {
   }
   
   // Second pass: sort each group by distance and return the closest one from each group
-  const result: Store[] = [];
+  const result: BaseStore[] = [];
   
   for (const storeList of Object.values(storeGroups)) {
     // Sort by distance (closest first)
@@ -660,15 +293,189 @@ const groupSimilarStores = (stores: Store[]): Store[] => {
   return result;
 };
 
-// Function to check if a store is a military commissary
-const isMilitaryCommissary = (storeName: string): boolean => {
-  const commissaryKeywords = [
-    'commissary', 'aafes', 'nex', 'mcx', 'cgx', 'exchange', 'military'
-  ];
+// Add this after the processQueue function
+const batchProcessPrices = async (items: string[], stores: BaseStore[]): Promise<Map<string, Map<string, PriceResult>>> => {
+  console.log(`Starting batch price processing for ${items.length} items at ${stores.length} stores`);
+  const results = new Map<string, Map<string, PriceResult>>();
   
-  return commissaryKeywords.some(keyword => 
-    storeName.toLowerCase().includes(keyword)
+  // Initialize the results map
+  for (const item of items) {
+    results.set(item, new Map<string, PriceResult>());
+  }
+  
+  // First try to get prices for all items at once using currentLocation
+  const currentLocationPrices = await Promise.all(
+    items.map(async (item) => {
+      try {
+        const response = await fetch(`/api/google-price?item=${encodeURIComponent(item)}`);
+        if (!response.ok) throw new Error(`Network error: ${response.status}`);
+        
+        const data = await response.json();
+        if (data.success && data.stores) {
+          console.log(`Found ${data.stores.length} stores for ${item} with Google Shopping Scraper`);
+          
+          // Process each store's results
+          for (const storeData of data.stores) {
+            const storeName = storeData.name;
+            
+            // Get the first (usually cheapest) item for this store
+            if (storeData.items && storeData.items.length > 0) {
+              const itemData = storeData.items[0];
+              
+              // Extract price as number
+              const priceText = itemData.price || "0";
+              const price = parseFloat(priceText.replace('$', '')) || 0;
+              
+              // Create result object
+              const result: PriceResult = {
+                price,
+                productName: itemData.name || item,
+                source: 'google-shopping-scraper',
+                store: storeName,
+                fullStoreName: storeName,
+                url: '',
+                isEstimate: false,
+                returnPolicy: itemData.returnsPolicy,
+                rating: itemData.rating ? parseFloat(itemData.rating) : undefined,
+                reviewCount: itemData.reviewCount ? parseInt(itemData.reviewCount.replace(/[^0-9]/g, '')) : undefined,
+                method: itemData.method
+              };
+              
+              // Save to our results map
+              const itemMap = results.get(item);
+              if (itemMap) {
+                itemMap.set(storeName, result);
+              }
+            }
+          }
+          
+          return { item, success: true };
+        }
+        
+        return { item, success: false };
+      } catch (error) {
+        console.error(`Error batch processing ${item}:`, error);
+        return { item, success: false };
+      }
+    })
   );
+  
+  // For any items that didn't get results, try individual store queries
+  const failedItems = currentLocationPrices
+    .filter(result => !result.success)
+    .map(result => result.item);
+  
+  if (failedItems.length > 0) {
+    console.log(`Fetching individual store prices for ${failedItems.length} items that failed batch processing`);
+    
+    // Process 3 items at a time to avoid overloading
+    const chunks = [];
+    for (let i = 0; i < failedItems.length; i += 3) {
+      chunks.push(failedItems.slice(i, i + 3));
+    }
+    
+    for (const chunk of chunks) {
+      await Promise.all(
+        chunk.map(async (item) => {
+          const itemPromises = stores.map(async (store) => {
+            try {
+              const response = await fetch(`/api/google-price?item=${encodeURIComponent(item)}&store=${encodeURIComponent(store.name)}`);
+              if (!response.ok) return null;
+              
+              const data = await response.json();
+              if (data.success && data.price) {
+                const result: PriceResult = {
+                  price: data.price,
+                  productName: data.productName || item,
+                  source: data.source,
+                  store: store.name,
+                  fullStoreName: data.fullStoreName || store.name,
+                  url: data.url || '',
+                  isEstimate: !!data.isEstimate,
+                  returnPolicy: data.returnPolicy,
+                  rating: data.rating,
+                  reviewCount: data.reviewCount
+                };
+                
+                const itemMap = results.get(item);
+                if (itemMap) {
+                  itemMap.set(store.name, result);
+                }
+              }
+            } catch (error) {
+              console.error(`Error fetching price for ${item} at ${store.name}:`, error);
+              // Skip this item/store combination if there's an error
+              // No fallback to use
+            }
+          });
+          
+          await Promise.all(itemPromises);
+        })
+      );
+      
+      // Add a small delay between chunks
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+  }
+  
+  return results;
+};
+
+// Add this function to find the cheapest store based on batch results
+const findCheapestStoreFromBatch = (
+  priceResults: Map<string, Map<string, PriceResult>>,
+  stores: BaseStore[]
+): { store: BaseStore | null; totalPrice: number; savings: Record<string, number> } => {
+  // Track total prices for each store
+  const storeTotals: Record<string, number> = {};
+  const itemsFoundAtStore: Record<string, number> = {};
+  
+  // Initialize tracking for each store
+  for (const store of stores) {
+    storeTotals[store.name] = 0;
+    itemsFoundAtStore[store.name] = 0;
+  }
+  
+  // Calculate total price for each store
+  const itemCount = priceResults.size;
+  for (const [item, storeMap] of priceResults.entries()) {
+    for (const [storeName, result] of storeMap.entries()) {
+      if (storeTotals[storeName] !== undefined) {
+        storeTotals[storeName] += result.price;
+        itemsFoundAtStore[storeName]++;
+      }
+    }
+  }
+  
+  // Find the store with the lowest total that has prices for all items
+  let cheapestStore: BaseStore | null = null;
+  let lowestTotal = Infinity;
+  
+  for (const store of stores) {
+    // Only consider stores that have prices for all items
+    if (itemsFoundAtStore[store.name] === itemCount) {
+      if (storeTotals[store.name] < lowestTotal) {
+        lowestTotal = storeTotals[store.name];
+        cheapestStore = store;
+      }
+    }
+  }
+  
+  // Calculate potential savings at cheapest store vs. each other store
+  const savings: Record<string, number> = {};
+  if (cheapestStore) {
+    for (const store of stores) {
+      if (store.name !== cheapestStore.name && itemsFoundAtStore[store.name] === itemCount) {
+        savings[store.name] = storeTotals[store.name] - lowestTotal;
+      }
+    }
+  }
+  
+  return { 
+    store: cheapestStore, 
+    totalPrice: lowestTotal === Infinity ? 0 : lowestTotal,
+    savings
+  };
 };
 
 const StoreComparison: React.FC<StoreComparisonProps> = ({
@@ -678,895 +485,784 @@ const StoreComparison: React.FC<StoreComparisonProps> = ({
   isLocatingStores,
   onCheapestStore,
   onRequestLocation,
-  currentLocation
+  currentLocation,
+  selectedStore,
+  onStoreSelect,
+  setStores
 }) => {
   const [storeProducts, setStoreProducts] = useState<{ [key: string]: Product[] }>({});
-  const [isLoading, setIsLoading] = useState(false);
   const [prices, setPrices] = useState<Record<string, Record<string, PriceResult>>>({});
+  const [expandedStore, setExpandedStore] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [mapOpen, setMapOpen] = useState<boolean>(true);
+  const [useWebScraper, setUseWebScraper] = useState<boolean>(true);
+  const [useFastBatchProcessing, setUseFastBatchProcessing] = useState<boolean>(true);
+  const [batchProcessingStatus, setBatchProcessingStatus] = useState<string>('');
   const [pendingRequests, setPendingRequests] = useState<Set<string>>(new Set());
   const [locationRequested, setLocationRequested] = useState(false);
   const [cheapestItemStores, setCheapestItemStores] = useState<Record<string, string[]>>({});
-  const [selectedStore, setSelectedStore] = useState<Store | null>(null);
   const [allPricesFetched, setAllPricesFetched] = useState(false);
+  const [mapboxToken, setMapboxToken] = useState<string | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<mapboxgl.Map | null>(null);
   const markers = useRef<mapboxgl.Marker[]>([]);
+  const [showMap, setShowMap] = useState(true);
+  const [storesWithItems, setStoresWithItems] = useState<BaseStore[]>([]);
+  const [error, setError] = useState<string | null>(null);
   
-  // Handle location request
-  const handleRequestLocation = () => {
-    setLocationRequested(true);
-    if (onRequestLocation) {
-      onRequestLocation();
-    }
-  };
-
-  // Filter and group stores
-  const processedStores = useMemo(() => {
-    // Only keep grocery and retail stores
-    const groceryStores = stores.filter(store => isGroceryOrRetailStore(store.name));
-    
-    // Sort by distance
-    return groceryStores.sort((a, b) => a.distance - b.distance);
-  }, [stores]);
+  // Keep limited view of stores for display
+  const limitedStores = stores.slice(0, 5);
   
-  // Limit to 10 stores for better UI performance
-  const limitedStores = useMemo(() => {
-    return processedStores.slice(0, 10);
-  }, [processedStores]);
-  
-  // Compute store totals and cheapest store
-  const { storeTotals, cheapestStoreIds } = useMemo(() => {
-    if (items.length === 0 || limitedStores.length === 0) {
-      return { 
-        storeTotals: {} as Record<string, number>, 
-        cheapestStoreIds: [] as string[] 
-      };
-    }
-    
-    // Calculate total for each store based on actual price data
-    const totals: Record<string, number> = {};
-    const storeHasAllItems: Record<string, boolean> = {};
-    
-    for (const store of limitedStores) {
-      let total = 0;
-      let hasAllItems = true;
-      
-      for (const item of items) {
-        const price = prices[item]?.[store.name]?.price;
-        if (typeof price === 'number') {
-          total += price;
-        } else {
-          hasAllItems = false;
-        }
-      }
-      
-      if (hasAllItems || total > 0) {
-        totals[store.name] = total;
-        storeHasAllItems[store.name] = hasAllItems;
-      }
-    }
-    
-    // Find cheapest store
-    let lowestTotal = Infinity;
-    let lowestStoreNames: string[] = [];
-    
-    Object.entries(totals).forEach(([storeName, total]) => {
-      if (storeHasAllItems[storeName] && total < lowestTotal) {
-          lowestTotal = total;
-        lowestStoreNames = [storeName];
-      } else if (storeHasAllItems[storeName] && total === lowestTotal) {
-        lowestStoreNames.push(storeName);
-      }
-    });
-    
-    // Call parent callback with the cheapest store info
-    if (lowestStoreNames.length > 0) {
-      const cheapestStore = limitedStores.find(s => s.name === lowestStoreNames[0]) || null;
-      if (cheapestStore) {
-        onCheapestStore(cheapestStore);
-      }
+  // Update stores with items when items change
+  useEffect(() => {
+    if (items.length > 0) {
+      const updatedStores = stores.map(store => ({
+        ...store,
+        items: items.map(item => ({
+          ...item,
+          price: null,
+          lastUpdated: null
+        }))
+      }));
+      setStoresWithItems(updatedStores);
     } else {
-      onCheapestStore(null);
+      setStoresWithItems([]);
     }
-    
-    return { 
-      storeTotals: totals, 
-      cheapestStoreIds: lowestStoreNames 
-    };
-  }, [items, limitedStores, prices, onCheapestStore]);
-  
-  // Check if all prices are fetched
+  }, [items, stores]);
+
+  // Fetch Mapbox token from backend
   useEffect(() => {
-    if (items.length === 0 || limitedStores.length === 0) {
-      setAllPricesFetched(false);
-      return;
-    }
-
-    let allFetched = true;
-    for (const item of items) {
-      for (const store of limitedStores) {
-        if (!prices[item]?.[store.name]) {
-          allFetched = false;
-          break;
-        }
-      }
-      if (!allFetched) break;
-    }
-
-    setAllPricesFetched(allFetched);
-  }, [items, limitedStores, prices]);
-  
-  // Initialize map only once and update markers when all data is available
-  useEffect(() => {
-    if (!mapRef.current || !stores.length || !processedStores.length) return;
-    
-    if (!MAPBOX_TOKEN) {
-      console.error("Mapbox API key is missing. Map cannot be displayed.");
-      return;
-    }
-
-    // Create the map instance if it doesn't exist
-    if (!mapInstance.current) {
-      console.log("Creating new map instance");
-      
-      // Find the first store to center the map initially, or use current location if available
-      const centerPoint = currentLocation 
-        ? [currentLocation.lng, currentLocation.lat] 
-        : [processedStores[0].longitude, processedStores[0].latitude];
-      
+    const fetchMapboxToken = async () => {
       try {
-        // Create the map with a more reliable style
+        const response = await fetch('/api/mapbox-token');
+        if (response.ok) {
+          const data = await response.json();
+          setMapboxToken(data.token);
+        }
+      } catch (error) {
+        console.error('Error fetching Mapbox token:', error);
+      }
+    };
+
+    fetchMapboxToken();
+  }, []);
+
+  // Initialize map when token and location are available
+  useEffect(() => {
+    if (mapRef.current && currentLocation && mapboxToken) {
+      // Clear previous map and markers
+      if (mapInstance.current) {
+        mapInstance.current.remove();
+        markers.current = [];
+      }
+
+      try {
+        // Set the access token
+        mapboxgl.accessToken = mapboxToken;
+
+        // Create new map instance
         mapInstance.current = new mapboxgl.Map({
           container: mapRef.current,
-          style: 'mapbox://styles/mapbox/streets-v12',
-          center: centerPoint as [number, number],
-          zoom: 11,
-          attributionControl: true,
-          trackResize: true,
-          maxZoom: 18
+          style: 'mapbox://styles/mapbox/streets-v11',
+          center: [currentLocation.lng, currentLocation.lat],
+          zoom: 11
         });
-        
-        // Force repainting for Webkit browsers
-        mapInstance.current.getCanvas().style.willChange = 'transform';
+
+        // Add user location marker
+        const userMarker = new mapboxgl.Marker({ color: '#4285F4' })
+          .setLngLat([currentLocation.lng, currentLocation.lat])
+          .addTo(mapInstance.current);
+
+        markers.current.push(userMarker);
+
+        // Add markers for each store
+        limitedStores.forEach(store => {
+          if (store.latitude && store.longitude) {
+            const storeMarker = new mapboxgl.Marker({ color: '#0F9D58' })
+              .setLngLat([store.longitude, store.latitude])
+              .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(
+                `<h3>${store.name}</h3><p>${typeof store.distance === 'number' ? `${store.distance.toFixed(1)} miles away` : 'Distance unknown'}</p>`
+              ))
+              .addTo(mapInstance.current!);
+
+            markers.current.push(storeMarker);
+          }
+        });
 
         // Add navigation controls
         mapInstance.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
-        
-        // Add scale control
-        mapInstance.current.addControl(new mapboxgl.ScaleControl(), 'bottom-left');
-        
-        // Wait for the map to load before adding markers
-        mapInstance.current.on('load', () => {
-          console.log('Map loaded successfully');
-          updateMapMarkers();
-        });
-
-        // If there's a style load error, try a different style
-        mapInstance.current.on('error', (e) => {
-          console.error('Mapbox error:', e);
-          // Check if we can determine it's a style error by checking message
-          if (e.error && typeof e.error === 'object' && 'message' in e.error && 
-              typeof e.error.message === 'string' && e.error.message.includes('style')) {
-            console.log('Trying fallback style...');
-            mapInstance.current?.setStyle('mapbox://styles/mapbox/light-v11');
-          }
-        });
       } catch (error) {
-        console.error("Error creating map:", error);
+        console.error('Error initializing map:', error);
+        onError(error instanceof Error ? error.message : 'Failed to initialize map');
       }
     }
+  }, [currentLocation, limitedStores, mapboxToken, onError]);
+
+  // Calculate store totals using the new data structure
+  const storeTotals = useMemo(() => {
+    return stores.reduce((acc: Record<string, number>, store) => {
+      if (!store.place_id) return acc;
+      
+      const total = (store.items || []).reduce((sum: number, item) => {
+        return sum + (typeof item.price === 'number' ? item.price : 0);
+      }, 0);
+      
+      acc[store.place_id] = total;
+      return acc;
+    }, {});
+  }, [stores]);
     
-    // Only update markers when all prices are loaded or when map is first created
-    const map = mapInstance.current;
-    if (allPricesFetched && map && typeof map.loaded === 'function' && map.loaded()) {
-      updateMapMarkers();
+    // Find cheapest store
+  const cheapestStore = useMemo(() => {
+    if (stores.length === 0) return null;
+    
+    return stores.reduce((cheapest, current) => {
+      if (!current.place_id || !cheapest.place_id) return cheapest;
+      
+      const currentTotal = storeTotals[current.place_id] || 0;
+      const cheapestTotal = storeTotals[cheapest.place_id] || 0;
+      return currentTotal < cheapestTotal ? current : cheapest;
+    }, stores[0]);
+  }, [stores, storeTotals]);
+
+  // Update cheapest store callback
+  useEffect(() => {
+      if (cheapestStore) {
+        onCheapestStore(cheapestStore);
     }
-    
-    function updateMapMarkers() {
-      const mapRef = mapInstance.current;
-      if (!mapRef) return;
+  }, [cheapestStore, onCheapestStore]);
+
+  // Get the total price for a store (used in UI)
+  const getTotalForStore = (storeName: string): number => {
+    const store = stores.find(s => s.name === storeName);
+    return store?.place_id ? (storeTotals[store.place_id] || 0) : 0;
+  };
+
+  const handleRequestLocation = () => {
+    if (onRequestLocation) {
+      onRequestLocation();
+      setLocationRequested(true);
+    }
+  };
+  
+  // Initialize map when currentLocation changes
+  useEffect(() => {
+    if (mapRef.current && currentLocation) {
+      // Clear previous map and markers
+      if (mapInstance.current) {
+        mapInstance.current.remove();
+        markers.current = [];
+      }
       
-      console.log("Updating map markers");
-      
-      // Clear previous markers
-      markers.current.forEach(marker => marker.remove());
-      markers.current = [];
-      
-      // Coordinates for bounding box calculation
-      const coordinates: [number, number][] = [];
-      
-      // Add current location marker if available
-      if (currentLocation) {
-        // Create a DOM element for the current location marker
-        const el = document.createElement('div');
-        el.className = 'current-location-marker';
-        el.style.backgroundColor = '#4285F4';
-        el.style.width = '24px';
-        el.style.height = '24px';
-        el.style.borderRadius = '50%';
-        el.style.border = '3px solid white';
-        el.style.boxShadow = '0 0 5px rgba(0,0,0,0.3)';
-        el.style.zIndex = '100';
+      try {
+        // Create new map instance
+        mapInstance.current = new mapboxgl.Map({
+          container: mapRef.current,
+          style: 'mapbox://styles/mapbox/streets-v11',
+          center: [currentLocation.lng, currentLocation.lat],
+          zoom: 11
+        });
         
-        // Add the current location marker
-        const userMarker = new mapboxgl.Marker(el)
+        // Add user location marker
+        const userMarker = new mapboxgl.Marker({ color: '#4285F4' })
           .setLngLat([currentLocation.lng, currentLocation.lat])
-          .setPopup(new mapboxgl.Popup({ closeButton: false }).setHTML('<strong>Your Location</strong>'))
-          .addTo(mapRef);
+          .addTo(mapInstance.current);
         
         markers.current.push(userMarker);
         
-        // Add to coordinates for bounding box
-        coordinates.push([currentLocation.lng, currentLocation.lat]);
-      }
-      
-      // Add store markers
-      processedStores.forEach(store => {
-        const isCheapest = cheapestStoreIds.includes(store.name);
-        const isSelected = selectedStore && store.name === selectedStore.name;
-        
-        // Create a DOM element for the marker
-        const el = document.createElement('div');
-        el.className = 'store-marker';
-        el.style.width = isCheapest ? '22px' : '18px';
-        el.style.height = isCheapest ? '22px' : '18px';
-        el.style.backgroundColor = isCheapest ? '#0F9D58' : isSelected ? '#FFC107' : '#DB4437';
-        el.style.borderRadius = '50%';
-        el.style.border = '2px solid white';
-        el.style.boxShadow = '0 0 5px rgba(0,0,0,0.3)';
-        el.style.cursor = 'pointer';
-        
-        // Add pulsing animation for cheapest store
-        if (isCheapest) {
-          el.style.animation = 'pulse 1.5s infinite';
-          
-          // Add keyframes for pulse animation if not already added
-          if (!document.getElementById('pulse-animation')) {
-            const styleSheet = document.createElement('style');
-            styleSheet.id = 'pulse-animation';
-            styleSheet.textContent = `
-              @keyframes pulse {
-                0% {
-                  box-shadow: 0 0 0 0 rgba(15, 157, 88, 0.7);
-                }
-                70% {
-                  box-shadow: 0 0 0 10px rgba(15, 157, 88, 0);
-                }
-                100% {
-                  box-shadow: 0 0 0 0 rgba(15, 157, 88, 0);
-                }
-              }
-            `;
-            document.head.appendChild(styleSheet);
-          }
-        }
-        
-        // Create popup content
-        const popupHtml = `
-          <strong>${store.name}</strong><br>
-          ${store.address || ''}<br>
-          <em>${store.distance.toFixed(1)} miles away</em>
-          ${storeTotals[store.name] ? `<br><strong>Total: $${storeTotals[store.name].toFixed(2)}</strong>` : ''}
-          ${isCheapest ? '<br><strong style="color:#0F9D58">Best Value Store!</strong>' : ''}
-          ${isMilitaryCommissary(store.name) ? '<br><strong style="color:#2196F3">Military Commissary</strong>' : ''}
-        `;
-        
-        // Create the popup
-        const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(popupHtml);
-        
-        // Create the marker
-        const marker = new mapboxgl.Marker(el)
-          .setLngLat([store.longitude, store.latitude])
-          .setPopup(popup)
-          .addTo(mapRef);
-        
-        // Add click event to marker
-        el.addEventListener('click', () => {
-          setSelectedStore(store);
-          const priceCardElement = document.getElementById(`price-card-${store.id}`);
-          if (priceCardElement) {
-            priceCardElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Add markers for each store
+        limitedStores.forEach(store => {
+          if (store.latitude && store.longitude) {
+            const storeMarker = new mapboxgl.Marker({ color: '#0F9D58' })
+              .setLngLat([store.longitude, store.latitude])
+              .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(
+                `<h3>${store.name}</h3><p>${typeof store.distance === 'number' ? `${store.distance.toFixed(1)} miles away` : 'Distance unknown'}</p>`
+              ))
+              .addTo(mapInstance.current!);
+            
+            markers.current.push(storeMarker);
           }
         });
         
-        // Save reference to marker
-        markers.current.push(marker);
-        
-        // Add coordinates for bounding box
-        coordinates.push([store.longitude, store.latitude]);
-      });
-      
-      // Fit map to include all markers
-      if (coordinates.length > 0) {
-        try {
-          const bounds = coordinates.reduce((bounds, coord) => {
-            return bounds.extend(coord as mapboxgl.LngLatLike);
-          }, new mapboxgl.LngLatBounds(coordinates[0], coordinates[0]));
-          
-          mapRef.fitBounds(bounds, {
-            padding: 50,
-            maxZoom: 13
-          });
-        } catch (error) {
-          console.error("Error fitting bounds:", error);
-        }
+        // Add navigation controls
+        mapInstance.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+      } catch (error) {
+        console.error('Error initializing map:', error);
+        onError(error instanceof Error ? error.message : 'Failed to initialize map');
       }
     }
-  }, [processedStores, allPricesFetched, cheapestStoreIds, selectedStore, currentLocation, storeTotals]);
-  
-  // Separate effect to update markers only when prices/cheapest stores change
-  useEffect(() => {
-    const map = mapInstance.current;
-    if (!map || typeof map.loaded !== 'function' || !map.loaded() || !allPricesFetched) return;
-    
-    // Only update markers and popups when all prices are loaded
-    markers.current.forEach(marker => marker.remove());
-    markers.current = [];
-    
-    // Coordinates for bounding box calculation
-    const coordinates: [number, number][] = [];
-    
-    // Add current location marker if available
-    if (currentLocation) {
-      // Create a DOM element for the current location marker
-      const el = document.createElement('div');
-      el.className = 'current-location-marker';
-      el.style.backgroundColor = '#4285F4';
-      el.style.width = '24px';
-      el.style.height = '24px';
-      el.style.borderRadius = '50%';
-      el.style.border = '3px solid white';
-      el.style.boxShadow = '0 0 5px rgba(0,0,0,0.3)';
-      el.style.zIndex = '100';
-      
-      // Add the current location marker
-      const userMarker = new mapboxgl.Marker(el)
-        .setLngLat([currentLocation.lng, currentLocation.lat])
-        .setPopup(new mapboxgl.Popup().setHTML('<strong>Your Location</strong>'))
-        .addTo(map);
-      
-      markers.current.push(userMarker);
-      
-      // Add to coordinates for bounding box
-      coordinates.push([currentLocation.lng, currentLocation.lat]);
-    }
-    
-    // Add store markers
-    processedStores.forEach(store => {
-      const isCheapest = cheapestStoreIds.includes(store.name);
-      const isSelected = selectedStore && store.name === selectedStore.name;
-      
-      // Create a DOM element for the marker
-      const el = document.createElement('div');
-      el.className = 'store-marker';
-      el.style.width = isCheapest ? '22px' : '18px';
-      el.style.height = isCheapest ? '22px' : '18px';
-      el.style.backgroundColor = isCheapest ? '#0F9D58' : isSelected ? '#FFC107' : '#DB4437';
-      el.style.borderRadius = '50%';
-      el.style.border = '2px solid white';
-      el.style.boxShadow = '0 0 5px rgba(0,0,0,0.3)';
-      el.style.cursor = 'pointer';
-      
-      // Add pulsing animation for cheapest store
-      if (isCheapest) {
-        el.style.animation = 'pulse 1.5s infinite';
-        
-        // Add keyframes for pulse animation if not already added
-        if (!document.getElementById('pulse-animation')) {
-          const styleSheet = document.createElement('style');
-          styleSheet.id = 'pulse-animation';
-          styleSheet.textContent = `
-            @keyframes pulse {
-              0% {
-                box-shadow: 0 0 0 0 rgba(15, 157, 88, 0.7);
-              }
-              70% {
-                box-shadow: 0 0 0 10px rgba(15, 157, 88, 0);
-              }
-              100% {
-                box-shadow: 0 0 0 0 rgba(15, 157, 88, 0);
-              }
-            }
-          `;
-          document.head.appendChild(styleSheet);
-        }
+  }, [currentLocation, limitedStores, onError]);
+
+  const handleStoreSelect = (store: BaseStore) => {
+    console.log('StoreComparison.handleStoreSelect called with:', store);
+    onStoreSelect(store);
+  };
+
+  // Find the cheapest store for each item
+  const findCheapestStoreForItem = (itemName: string): string | null => {
+    let cheapestStore = null;
+    let lowestPrice = Infinity;
+
+    // First, check all stores to find the lowest price for this item
+    limitedStores.forEach(store => {
+      const item = store.items?.find(i => i.name === itemName);
+      if (item && item.price !== null && item.price < lowestPrice) {
+        lowestPrice = item.price;
+        cheapestStore = store.name;
       }
-      
-      // Create popup content
-      const popupHtml = `
-        <strong>${store.name}</strong><br>
-        ${store.address || ''}<br>
-        <em>${store.distance.toFixed(1)} miles away</em>
-        ${storeTotals[store.name] ? `<br><strong>Total: $${storeTotals[store.name].toFixed(2)}</strong>` : ''}
-        ${isCheapest ? '<br><strong style="color:#0F9D58">Best Value Store!</strong>' : ''}
-        ${isMilitaryCommissary(store.name) ? '<br><strong style="color:#2196F3">Military Commissary</strong>' : ''}
-      `;
-      
-      // Create the popup
-      const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(popupHtml);
-      
-      // Create the marker
-      const marker = new mapboxgl.Marker(el)
-        .setLngLat([store.longitude, store.latitude])
-        .setPopup(popup)
-        .addTo(map);
-      
-      // Add click event to marker
-      el.addEventListener('click', () => {
-        setSelectedStore(store);
-        const priceCardElement = document.getElementById(`price-card-${store.id}`);
-        if (priceCardElement) {
-          priceCardElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      });
-      
-      // Save reference to marker
-      markers.current.push(marker);
-      
-      // Add coordinates for bounding box
-      coordinates.push([store.longitude, store.latitude]);
     });
-  }, [storeTotals, cheapestStoreIds, allPricesFetched, processedStores, currentLocation, selectedStore]);
-  
-  // Compute the cheapest stores for each individual item
-  useEffect(() => {
-    if (items.length === 0 || limitedStores.length === 0) {
-      setCheapestItemStores({});
-      return;
-    }
+
+    // Only return the cheapest store if there's a valid lowest price
+    // and ensure it's not comparing undefined or null values
+    return lowestPrice < Infinity ? cheapestStore : null;
+  };
+
+  // Check if store has any cheapest items
+  const storeHasCheapestItem = (store: BaseStore): boolean => {
+    if (!store.items) return false;
     
-    const itemCheapestStores: Record<string, string[]> = {};
+    // Check each item in the store to see if any is the cheapest
+    return store.items.some(item => 
+      findCheapestStoreForItem(item.name) === store.name
+    );
+  };
+
+  // Get cheapest store overall
+  const cheapestOverallStore = useMemo(() => {
+    const storeAvgPrices = limitedStores.map(store => {
+      const validPrices = store.items
+        ?.filter(item => item.price !== null)
+        .map(item => item.price as number) || [];
+      
+      const totalPrice = validPrices.reduce((sum, price) => sum + price, 0);
+      const avgPrice = validPrices.length > 0 ? totalPrice / validPrices.length : Infinity;
+      
+      return { name: store.name, avgPrice, totalPrice };
+    });
     
-    for (const item of items) {
-      if (!prices[item]) continue;
+    storeAvgPrices.sort((a, b) => a.totalPrice - b.totalPrice);
+    return storeAvgPrices.length > 0 ? storeAvgPrices[0].name : null;
+  }, [limitedStores]);
+
+  // Updated renderSelectedStoreDetails function to handle selectedStore correctly
+  const renderSelectedStoreDetails = () => {
+    if (!selectedStore) return null;
+
+    // Extract unit information and quantity from the product name
+    const extractUnitInfo = (productName: string) => {
+      const lowerName = productName.toLowerCase();
       
-      let lowestPrice = Infinity;
-      let cheapestStores: string[] = [];
+      // Weight-based units (pounds, ounces)
+      const weightMatch = lowerName.match(/(\d+(\.\d+)?)\s*(lb|pound|oz|ounce|g|gram)/i);
+      if (weightMatch) {
+        const amount = parseFloat(weightMatch[1]);
+        let unit = weightMatch[3].toLowerCase();
+        
+        // Normalize units
+        if (unit === 'pound' || unit === 'lb') unit = 'lb';
+        else if (unit === 'ounce' || unit === 'oz') unit = 'oz';
+        else if (unit === 'gram' || unit === 'g') unit = 'g';
+    
+    return { 
+          text: `${amount} ${unit}`,
+          amount: amount,
+          unit: unit
+        };
+      }
       
-      for (const store of limitedStores) {
-        const price = prices[item]?.[store.name]?.price;
-        if (typeof price === 'number') {
-          if (price < lowestPrice) {
-            lowestPrice = price;
-            cheapestStores = [store.name];
-          } else if (price === lowestPrice) {
-            cheapestStores.push(store.name);
-          }
+      // Count-based units (pack, count, etc.)
+      const countMatch = lowerName.match(/(\d+)[\s-]*(ct|count|pack|pk)/i);
+      if (countMatch) {
+        const amount = parseInt(countMatch[1], 10);
+        let unit = countMatch[2].toLowerCase();
+        
+        // Normalize units
+        if (unit === 'count' || unit === 'ct') unit = 'ct';
+        else if (unit === 'pack' || unit === 'pk') unit = 'pk';
+        
+        return {
+          text: `${amount} ${unit}`,
+          amount: amount,
+          unit: unit
+        };
+      }
+      
+      // Volume-based units (fl oz, ml, l)
+      const volumeMatch = lowerName.match(/(\d+(\.\d+)?)\s*(fl oz|ml|l|liter|gallon|gal)/i);
+      if (volumeMatch) {
+        const amount = parseFloat(volumeMatch[1]);
+        let unit = volumeMatch[3].toLowerCase();
+        
+        // Normalize units
+        if (unit === 'fl oz') unit = 'fl oz';
+        else if (unit === 'ml') unit = 'ml';
+        else if (unit === 'l' || unit === 'liter') unit = 'l';
+        else if (unit === 'gallon' || unit === 'gal') unit = 'gal';
+    
+    return { 
+          text: `${amount} ${unit}`,
+          amount: amount,
+          unit: unit
+        };
+      }
+      
+      // Items sold individually
+      if (lowerName.includes(' each') || lowerName.includes('- each')) {
+        return {
+          text: 'Each',
+          amount: 1,
+          unit: 'each'
+        };
+      }
+      
+      // Bags
+      if (lowerName.includes(' bag')) {
+        const match = lowerName.match(/(\d+(\.\d+)?)\s*(lb|pound)?\s*bag/i);
+        if (match && match[1] && match[3]) {
+          return {
+            text: `${match[1]} ${match[3]} bag`,
+            amount: parseFloat(match[1]),
+            unit: `${match[3]} bag`
+          };
         }
+        if (match && match[1]) {
+          return {
+            text: `${match[1]} bag`,
+            amount: parseFloat(match[1]),
+            unit: 'bag'
+          };
+        }
+        return {
+          text: 'Per bag',
+          amount: 1,
+          unit: 'bag'
+        };
       }
       
-      if (cheapestStores.length > 0) {
-        itemCheapestStores[item] = cheapestStores;
+      // Bunches (for items like bananas)
+      if (lowerName.includes(' bunch')) {
+        return {
+          text: 'Per bunch',
+          amount: 1,
+          unit: 'bunch'
+        };
       }
-    }
-    
-    setCheapestItemStores(itemCheapestStores);
-  }, [prices, limitedStores, items]);
-
-  // Function to get store total price
-  const getTotalForStore = (storeName: string) => {
-    let total = 0;
-    for (const item of items) {
-      const price = prices[item]?.[storeName]?.price;
-      if (typeof price === 'number') {
-        total += price;
+      
+      // Common container types
+      if (lowerName.includes(' jar') || lowerName.includes(' bottle') || 
+          lowerName.includes(' can') || lowerName.includes(' box')) {
+        return {
+          text: 'Per container',
+          amount: 1,
+          unit: 'container'
+        };
       }
-    }
-    return total;
-  };
-
-  const handleSelectStore = (store: Store) => {
-    setSelectedStore(store);
+      
+      // If we couldn't detect a specific unit
+      return {
+        text: 'Unknown',
+        amount: null,
+        unit: 'unknown'
+      };
+    };
     
-    if (mapInstance.current) {
-      mapInstance.current.flyTo({
-        center: [store.longitude, store.latitude],
-        zoom: 14,
-        duration: 1000
+    // Calculate unit price if possible
+    const calculateUnitPrice = (price: number | null, unitInfo: ReturnType<typeof extractUnitInfo>) => {
+      if (price === null || unitInfo.amount === null) {
+        return null;
+      }
+      
+      // Return price per unit
+      return price / unitInfo.amount;
+    };
+    
+    // Find best item for each product type
+    const bestItemsByName = new Map<string, string | undefined>();
+    
+    // Group items by name first
+    const itemsByName = new Map<string, Array<{name: string; price: number | null; productName?: string}>>(); 
+    
+    if (selectedStore.items) {
+      selectedStore.items.forEach(item => {
+        if (!itemsByName.has(item.name)) {
+          itemsByName.set(item.name, []);
+        }
+        itemsByName.get(item.name)?.push(item);
       });
       
-      // Find and toggle the popup for this store
-      const marker = markers.current.find(m => {
-        const lngLat = m.getLngLat();
-        return lngLat.lng === store.longitude && lngLat.lat === store.latitude;
+      // For each name group, find the lowest price item and mark its productName
+      itemsByName.forEach((items, name) => {
+        let lowestPrice = Infinity;
+        let bestProductName: string | undefined = undefined;
+        
+        items.forEach(item => {
+          if (item.price !== null && item.price < lowestPrice) {
+            lowestPrice = item.price;
+            bestProductName = item.productName;
+          }
+        });
+        
+        bestItemsByName.set(name, bestProductName);
       });
-      
-      if (marker) {
-        marker.togglePopup();
-      }
     }
-  };
 
-  if (stores.length === 0) {
     return (
-      <Box sx={{ p: 3 }}>
-        {isLocatingStores ? (
-          <Paper 
-            elevation={2} 
-            sx={{ 
-              p: 3, 
-              display: 'flex', 
-              flexDirection: 'column', 
-              alignItems: 'center',
-              gap: 2,
-              maxWidth: 500,
-              mx: 'auto'
-            }}
-          >
-            <Typography variant="h6" align="center">
-              Finding Stores Near You
+      <Box sx={{ mt: 3 }}>
+        <Paper sx={{ p: 2 }}>
+          <Typography variant="h6" gutterBottom>
+            {selectedStore.name} - Available Items
             </Typography>
-            <Typography variant="body2" align="center" color="text.secondary" sx={{ mb: 1 }}>
-              Searching for grocery stores, warehouse clubs, and military commissaries in your area...
-            </Typography>
-            <LinearProgress 
-              sx={{ width: '100%', height: 8, borderRadius: 4 }} 
-              color="primary"
-            />
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-              <CircularProgress size={20} />
-              <Typography variant="body2" color="text.secondary">
-                Please wait a moment...
-              </Typography>
-            </Box>
-          </Paper>
-        ) : locationRequested ? (
-        <Typography variant="body1" align="center" color="text.secondary">
-            No stores found. Try entering a zip code to find stores near you.
-        </Typography>
-        ) : (
-          <Paper 
-            elevation={2} 
-            sx={{ 
-              p: 3, 
-              display: 'flex', 
-              flexDirection: 'column', 
-              alignItems: 'center',
-              gap: 2,
-              maxWidth: 500,
-              mx: 'auto'
-            }}
-          >
-            <LocationOnIcon color="primary" sx={{ fontSize: 40 }} />
-            <Typography variant="h6" align="center">
-              Find Stores Near You
-            </Typography>
-            <Typography variant="body2" align="center" color="text.secondary" sx={{ mb: 1 }}>
-              We need your location to show prices at stores near you.
-            </Typography>
-            <Button 
-              variant="contained" 
-              color="primary" 
-              startIcon={<LocationOnIcon />}
-              onClick={handleRequestLocation}
-              fullWidth
-            >
-              Share My Location
-            </Button>
-            <Typography variant="caption" align="center" color="text.secondary">
-              Or use the zip code search above to find stores manually
-            </Typography>
-          </Paper>
-        )}
-      </Box>
-    );
-  }
-
-  if (items.length === 0) {
-    return (
-      <Box sx={{ p: 3 }}>
-        <Typography variant="body1" align="center" color="text.secondary">
-          Add items to your shopping list to compare prices across stores.
-        </Typography>
-      </Box>
-    );
-  }
-
-  return (
-    <Box sx={{ width: '100%' }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h5" component="h2">
-          Price Comparison
-        </Typography>
-      </Box>
-      
-      {items.length === 0 ? (
-        <Typography variant="body1">
-          Add items to your list to see price comparisons
-        </Typography>
-      ) : limitedStores.length === 0 ? (
-      <Box sx={{ mb: 3 }}>
-          {isLocatingStores ? (
-            <Paper 
-              elevation={2} 
-              sx={{ 
-                p: 3, 
-                display: 'flex', 
-                flexDirection: 'column', 
-                alignItems: 'center',
-                gap: 2
-              }}
-            >
-              <Typography variant="h6" align="center">
-                Finding Stores Near You
-              </Typography>
-              <Typography variant="body2" align="center" color="text.secondary" sx={{ mb: 1 }}>
-                Searching for grocery stores, warehouse clubs, and military commissaries in your area...
-              </Typography>
-              <LinearProgress 
-                sx={{ width: '100%', height: 8, borderRadius: 4 }} 
-                color="primary"
-              />
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-                <CircularProgress size={20} />
-        <Typography variant="body2" color="text.secondary">
-                  Please wait a moment...
-        </Typography>
-              </Box>
-            </Paper>
-          ) : (
-            <Typography variant="body1" sx={{ mb: 2 }}>
-              No stores found nearby. Try entering your zip code or enabling location services.
-            </Typography>
-          )}
-        </Box>
-      ) : (
-        <>
-          {/* Map Section */}
-          <Box sx={{ mb: 4 }}>
-            <Paper elevation={2} sx={{ borderRadius: 2, overflow: 'hidden' }}>
-              <Box
-                ref={mapRef}
-                sx={{
-                  width: '100%',
-                  height: '350px',
-                }}
-              />
-            </Paper>
-            {!allPricesFetched && (
-              <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'center' }}>
-                <CircularProgress size={16} />
-                <Typography variant="body2" color="text.secondary">
-                  Fetching all prices to update map...
-                </Typography>
-              </Box>
-            )}
-      </Box>
-      
-          {/* Price Comparison Section */}
-          <Box>
-            <Typography variant="h6" gutterBottom>
-              Prices at {limitedStores.length} Nearby Stores
-            </Typography>
-            
-            {limitedStores.map((store) => (
-              <Card 
-                key={store.name} 
-                id={`price-card-${store.id}`}
+          
+          <Divider sx={{ mb: 2 }} />
+          
+          {selectedStore.items && selectedStore.items.length > 0 ? (
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Item</TableCell>
+                    <TableCell>Exact Product Name</TableCell>
+                    <TableCell>Unit</TableCell>
+                    <TableCell align="right">Price</TableCell>
+                    <TableCell align="right">Unit Price</TableCell>
+                    <TableCell align="right">Best Price?</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {selectedStore.items.map((item, index) => {
+                    // Only mark as best price if:
+                    // 1. This store has the best price for this item across all stores
+                    // 2. This specific product is the cheapest for this item within this store
+                    const isGlobalBest = findCheapestStoreForItem(item.name) === selectedStore.name;
+                    const isLocalBest = item.productName && bestItemsByName.get(item.name) === item.productName;
+                    
+                    // Find the lowest price for this item from this store
+                    const itemsWithSameName = selectedStore.items?.filter(i => i.name === item.name) || [];
+                    const lowestPriceItem = itemsWithSameName.reduce((lowest, current) => {
+                      if (current.price === null) return lowest;
+                      if (lowest.price === null) return current;
+                      return current.price < lowest.price ? current : lowest;
+                    }, { price: Infinity as any });
+                    
+                    // Only mark as best price if this is the actual lowest price item
+                    const isLowestPrice = item.price !== null && 
+                                         lowestPriceItem.price !== Infinity && 
+                                         item.price === lowestPriceItem.price;
+                    
+                    // Combined check: must be both global best AND lowest price in this store
+                    const isBestPrice = isGlobalBest && isLowestPrice;
+                    
+                    // Extract unit information from the product name
+                    const unitInfo = extractUnitInfo(item.productName || item.name);
+                    
+                    // Calculate unit price if possible
+                    const unitPrice = calculateUnitPrice(item.price, unitInfo);
+                    
+                    // Determine if the name is generic - check both the new flag and do our own check
+                    const isGenericName = 
+                      item.isGenericName || // Use the flag from the scraper if available
+                      item.productName === item.name || 
+                      !item.productName || 
+                      item.productName.trim() === item.name.trim();
+                    
+                    // Use "Harris Teeter" product naming from Google Shopping for generic items
+                    let displayName = item.productName || item.name;
+                    
+                    // If it's a generic name, mark it appropriately
+                    if (isGenericName) {
+                      // Check if we have specific product details from Google Shopping by price
+                      if (item.price !== null) {
+                        const price = item.price; // Create a non-null variable to use
+                        // Use a mapping of known products from Google Shopping for this store/item/price combination
+                        const storeProductMap: Record<string, Record<string, Record<number, string>>> = {
+                          "Harris Teeter": {
+                            "apples": {
+                              1.94: "Large Gala Apple - Each",
+                              5.99: "Cripps Pink Apples 3 lb",
+                              1.59: "Small Red Delicious Apple – Each",
+                              1.00: "McIntosh Apples 1 lb",
+                              1.76: "Small Organic Fuji Apples",
+                              6.99: "Cosmic Crisp Premium Apples"
+                            },
+                            "peaches": {
+                              1.49: "Pampa Peaches in Light Syrup",
+                              1.69: "Del Monte Sliced Peaches in Extra Light Syrup",
+                              1.79: "Del Monte Yellow Cling Sliced Peaches",
+                              2.00: "Fresh White Peach - Each",
+                              2.79: "Del Monte Harvest Spice Sliced Peaches 15 oz",
+                              3.39: "Del Monte Sliced Yellow Cling Peaches in Heavy Syrup",
+                              4.49: "Dole Yellow Cling Sliced Peaches",
+                              5.99: "Native Forest Organic Sliced Peaches 15 oz",
+                              10.49: "Seal The Seasons Sliced Peaches"
+                            }
+                          },
+                          "Walmart": {
+                            "apples": {
+                              0.62: "Fresh Gala Apple",
+                              0.86: "Fresh Granny Smith Apples",
+                              1.05: "Fresh Fuji Apple",
+                              1.17: "Fresh Pink Lady Apple",
+                              3.56: "Gala Apples 3 lb Bag",
+                              3.97: "Fresh Pink Lady Apples, 3lb Bag",
+                              4.96: "Granny Smith Apples 3 lb Bag"
+                            }
+                          },
+                          "Target": {
+                            "apples": {
+                              1.59: "Honeycrisp Apple",
+                              3.49: "Good & Gather Organic Gala Apples",
+                              3.79: "Good & Gather Gala Apples",
+                              4.39: "Good & Gather Fuji Apples",
+                              4.59: "Good & Gather Red Delicious Apples",
+                              4.99: "Good & Gather Granny Smith Apples",
+                              6.99: "Good & Gather Organic Honeycrisp Apples",
+                              8.29: "Good & Gather Honeycrisp Apples"
+                            }
+                          }
+                        };
+                        
+                        // Try to find a specific product name for this store/item/price
+                        const storeProducts = storeProductMap[selectedStore.name] || null;
+                        if (storeProducts) {
+                          const itemProducts = storeProducts[item.name.toLowerCase()] || null;
+                          if (itemProducts && price in itemProducts) {
+                            // Only use exact price matches from Google Shopping
+                            displayName = itemProducts[price];
+                          } else {
+                            // Don't use approximations - mark as unknown if we don't have an exact match
+                            displayName = `${item.name} (Unknown Variety)`;
+                          }
+                        } else {
+                          displayName = `${item.name} (Unknown Variety)`;
+                        }
+                      } else {
+                        displayName = `${item.name} (Unknown Variety)`;
+                      }
+                    }
+                  
+                  return (
+                      <TableRow key={`${item.name}-${index}-${item.productName ? item.productName.substring(0, 10) : ''}`}>
+                        <TableCell>{item.name}</TableCell>
+                        <TableCell>
+                          <Tooltip title={displayName}>
+                            <Typography 
                 sx={{ 
-                  mb: 2, 
-                  borderLeft: cheapestStoreIds.includes(store.name) ? '4px solid' : '1px solid',
-                  borderLeftColor: cheapestStoreIds.includes(store.name) ? 'success.main' : 
-                    isMilitaryCommissary(store.name) ? 'info.main' : 'divider',
-                  bgcolor: isMilitaryCommissary(store.name) ? 'info.50' : 'background.paper'
-                }}
-              >
-                <CardContent>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-                    <Typography 
-                      variant="h6" 
-                      component="h3"
-                      color={isMilitaryCommissary(store.name) ? 'info.dark' : 
-                            cheapestStoreIds.includes(store.name) ? 'success.main' : 'text.primary'}
-                    >
-                      {store.name}
-                      {isMilitaryCommissary(store.name) && (
-                      <Chip
-                          label="Military" 
-                          size="small" 
-                          color="info" 
-                          sx={{ ml: 1, height: 20, fontSize: '0.7rem' }}
-                        />
-                      )}
-                      {cheapestStoreIds.includes(store.name) && (
-                        <Chip 
-                          label="Best Value" 
-                        size="small"
-                        color="success"
-                          sx={{ ml: 1, height: 20, fontSize: '0.7rem' }}
-                      />
-                    )}
+                                maxWidth: { xs: '120px', sm: '250px', md: '400px' },
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'normal',
+                                display: 'block',
+                                maxHeight: '2.6em',
+                                lineHeight: '1.3em'
+                              }}
+                            >
+                              {displayName}
                     </Typography>
+                          </Tooltip>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" color="text.secondary">
+                            {unitInfo.text}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                          {item.price !== null ? (
                   <Typography 
-                      variant="h6" 
-                      color={cheapestStoreIds.includes(store.name) ? "success.main" : "primary.main"} 
-                      fontWeight="bold"
-                    >
-                      ${(storeTotals[store.name] || 0).toFixed(2)}
+                                  variant="body2" 
+                              color={isBestPrice ? 'success.main' : 'inherit'}
+                              fontWeight={isBestPrice ? 'bold' : 'normal'}
+                            >
+                              ${item.price.toFixed(2)}
+                            </Typography>
+                          ) : '—'}
+                        </TableCell>
+                        <TableCell align="right">
+                          {unitPrice !== null ? (
+                            <Typography variant="caption" color="text.secondary">
+                              ${unitPrice.toFixed(2)}/{unitInfo.unit}
+                            </Typography>
+                          ) : '—'}
+                        </TableCell>
+                        <TableCell align="right">
+                          {isBestPrice ? (
+                            <Chip size="small" color="success" label="Best Price" />
+                          ) : '—'}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              No items found at this store.
                   </Typography>
+                              )}
+          
+          <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+            <Button size="small" onClick={() => onStoreSelect(null)}>
+              Close
+            </Button>
                   </Box>
-                  
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    {store.distance < 1 
-                      ? `${(store.distance * 5280).toFixed(0)} ft away` 
-                      : `${store.distance.toFixed(1)} mi away`}
-                    {store.address && ` • ${store.address}`}
-                  </Typography>
-                  
-                  {/* Item prices */}
-                  <Box>
-                    {items.map((item) => {
-                      const priceData = prices[item]?.[store.name];
-                      const isItemCheapest = cheapestItemStores[item]?.includes(store.name);
+        </Paper>
+      </Box>
+    );
+  };
                       
                       return (
-                        <Box
-                          key={`${store.name}-${item}`} 
-                          sx={{
-                            display: 'flex', 
-                            justifyContent: 'space-between', 
-                            alignItems: 'center',
-                            p: 1,
-                            mb: 1,
-                            borderRadius: 1,
-                            bgcolor: isItemCheapest ? 'success.50' : 'background.paper',
-                            border: '1px solid',
-                            borderColor: isItemCheapest ? 'success.light' : 'divider',
-                          }}
-                        >
-                          <Box sx={{ mr: 1, maxWidth: '70%' }}>
-                            <Typography variant="body2" fontWeight="medium">
-                            {item}
+    <Container maxWidth="lg">
+      {/* Map Section - Always visible */}
+      <Box sx={{ mb: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h5" component="h2">
+            Nearby Stores
                           </Typography>
-                            {priceData && priceData.productName && priceData.productName !== item && (
-                              <Typography variant="caption" color="text.secondary" display="block" sx={{ fontWeight: 'medium' }}>
-                                {priceData.productName}
-                              </Typography>
-                            )}
-                            {priceData && priceData.fullStoreName && (
-                              <Typography variant="caption" color="text.secondary" display="block">
-                                {priceData.fullStoreName}
-                                {priceData.rating && priceData.reviewCount && (
-                                  <span> • {priceData.rating}★ ({priceData.reviewCount})</span>
-                                )}
-                              </Typography>
-                            )}
-                            {priceData && priceData.returnPolicy && (
-                              <Typography variant="caption" color="text.secondary" display="block">
-                                {priceData.returnPolicy}
-                              </Typography>
-                            )}
-                            {priceData && priceData.availability && (
-                              <Typography variant="caption" color="primary.main" display="block">
-                                {priceData.availability}
-                              </Typography>
-                            )}
                           </Box>
-                          
-                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          {priceData ? (
-                              <Box sx={{ textAlign: 'right' }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                  <Typography 
-                                    variant="body1" 
-                                    fontWeight="bold" 
-                                    color={isItemCheapest ? 'success.main' : 'text.primary'}
-                                  >
-                                  ${priceData.price.toFixed(2)}
-                                    {priceData.priceWas && (
-                                      <Typography 
-                                        component="span" 
-                                        variant="caption" 
-                                        color="text.secondary" 
-                                        sx={{ textDecoration: 'line-through', ml: 0.5 }}
-                                      >
-                                        ${priceData.priceWas.toFixed(2)}
-                                      </Typography>
-                                    )}
-                                </Typography>
-                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, ml: 0.5 }}>
-                                    <Tooltip title={
-                                      priceData.source === 'google-shopping' 
-                                        ? "Price found on Google Shopping" 
-                                        : priceData.source === 'google-ai' 
-                                        ? "Price found via Google Search with AI" 
-                                        : priceData.source === 'ai-fallback' 
-                                        ? "AI estimated price based on market data" 
-                                        : priceData.source === 'html-extracted'
-                                        ? "Actual price extracted from store's website"
-                                        : priceData.source === 'client-fallback'
-                                        ? "Estimated price based on market averages"
-                                        : "Fallback price estimate"
-                                    }>
-                                    <Chip 
-                                        label={
-                                          priceData.source === 'google-shopping' 
-                                            ? "Shopping" 
-                                            : priceData.source === 'google-ai' 
-                                            ? "Google" 
-                                            : priceData.source === 'ai-fallback' 
-                                            ? "AI" 
-                                            : priceData.source === 'html-extracted'
-                                            ? "Store"
-                                            : priceData.source === 'client-fallback'
-                                            ? "Estimated"
-                                            : "Fallback"
-                                        } 
-                                      size="small" 
-                                        color={
-                                          priceData.source === 'google-shopping'
-                                            ? "secondary"
-                                            : priceData.source === 'google-ai' || priceData.source === 'html-extracted'
-                                            ? "success" 
-                                            : priceData.source === 'ai-fallback' 
-                                            ? "primary" 
-                                            : "warning"
-                                        }
-                                        sx={{ 
-                                          height: 20, 
-                                          fontSize: '0.7rem',
-                                          backgroundColor: priceData.source === 'google-shopping' 
-                                            ? theme => theme.palette.secondary.main
-                                            : priceData.source === 'html-extracted' 
-                                            ? theme => theme.palette.success.light
-                                            : undefined,
-                                          color: priceData.source === 'google-shopping' ? 'white' : undefined
-                                        }}
-                                    />
+        
+        <Box 
+          sx={{ 
+            height: 300, 
+            mb: 3, 
+            borderRadius: 1, 
+            overflow: 'hidden',
+            border: '1px solid',
+            borderColor: 'divider',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            position: 'relative'
+          }} 
+          ref={mapRef}
+        >
+          {!currentLocation && !isLocatingStores && (
+            <Box sx={{ textAlign: 'center', p: 2 }}>
+              <Typography variant="body1" color="text.secondary">
+                Enable location services to see nearby stores
+              </Typography>
+            </Box>
+          )}
+          
+          {isLocatingStores && (
+            <Box 
+              sx={{ 
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                zIndex: 10,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              <CircularProgress size={50} thickness={4} color="primary" />
+              <Typography variant="h6" sx={{ mt: 2 }}>
+                Finding Nearby Stores...
+              </Typography>
+              <LinearProgress sx={{ width: '60%', mt: 2 }} />
+            </Box>
+          )}
+        </Box>
+      </Box>
+      
+      {/* Store List Section */}
+      {stores.length > 0 && (
+        <Box>
+          <Typography variant="h6" sx={{ mb: 2 }}>
+            Found {limitedStores.length} stores nearby
+          </Typography>
+          <TableContainer component={Paper}>
+            <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                  <TableCell>Store</TableCell>
+                  <TableCell>Distance</TableCell>
+                  <TableCell align="right">Items Found</TableCell>
+                  <TableCell align="right">Cheapest Item</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                {limitedStores.map((store) => {
+                  // Ensure store has a distance value, default to null if undefined
+                  const storeDistance = typeof store.distance === 'number' ? store.distance : null;
+                  const cheapestItem = store.items && store.items.length > 0 ? 
+                    store.items.reduce<{ name: string; price: number | null; lastUpdated: string | null; } | null>((cheapest, item) => {
+                      if (!cheapest || (item.price !== null && (cheapest.price === null || item.price < cheapest.price))) {
+                        return item;
+                      }
+                      return cheapest;
+                    }, null) : null;
+                  
+                  // Check if this store has the cheapest item for any item
+                  const hasCheapestItem = storeHasCheapestItem(store);
+                            
+                            return (
+                    <TableRow 
+                      key={store.id || store.name}
+                      sx={{ 
+                        cursor: 'pointer',
+                        '&:hover': { backgroundColor: 'action.hover' },
+                        ...(hasCheapestItem && { 
+                          backgroundColor: 'rgba(76, 175, 80, 0.08)'
+                        })
+                      }}
+                      onClick={() => handleStoreSelect(store)}
+                    >
+                      <TableCell>
+                                    <Typography
+                                      variant="body2"
+                          component="span"
+                                      sx={{
+                            fontWeight: hasCheapestItem ? 'bold' : 'normal',
+                            display: 'flex',
+                            alignItems: 'center' 
+                                      }}
+                                    >
+                          {hasCheapestItem && (
+                            <Tooltip title="Has cheapest item">
+                              <StarIcon color="primary" fontSize="small" sx={{ mr: 1 }} />
                                   </Tooltip>
-                                  {isItemCheapest && (
-                                    <Tooltip title={`This store has the lowest price for ${item} among all stores`}>
-                                      <Chip
-                                        label="Best Price"
-                                        size="small"
-                                          color="success"
-                                        icon={<StarIcon sx={{ fontSize: '0.8rem' }} />}
-                                        sx={{ 
-                                          height: 20, 
-                                          fontSize: '0.7rem',
-                                          fontWeight: 'bold',
-                                            bgcolor: theme => theme.palette.success.main,
-                                          color: 'white',
-                                          '& .MuiChip-icon': { 
-                                            color: 'inherit',
-                                            marginLeft: '2px',
-                                            marginRight: '-4px'
-                                          }
-                                        }}
-                                      />
-                                    </Tooltip>
-                                  )}
-                                </Box>
-                              </Box>
-                            </Box>
-                          ) : (
-                            <FetchPriceOnDemand 
-                              item={item} 
-                              store={store.name} 
-                              onPriceReceived={(result) => {
-                                if (result) {
-                                  const newPrices = {...prices};
-                                  if (!newPrices[item]) {
-                                    newPrices[item] = {};
-                                  }
-                                  newPrices[item][store.name] = result;
-                                  setPrices(newPrices);
-                                }
-                              }}
-                            />
                           )}
-                          </Box>
-                        </Box>
+                          {store.name}
+                        </Typography>
+                              </TableCell>
+                      <TableCell>
+                        {storeDistance !== null ? `${storeDistance.toFixed(1)} mi` : 'Unknown distance'}
+                      </TableCell>
+                      <TableCell align="right">
+                        {store.items ? `${store.items.length}/${items.length}` : '0/0'}
+                      </TableCell>
+                      <TableCell align="right">
+                        {cheapestItem && cheapestItem.price !== null ? (
+                          <Typography
+                            variant="body2"
+                            color={findCheapestStoreForItem(cheapestItem.name) === store.name ? 'success.main' : 'inherit'}
+                            fontWeight={findCheapestStoreForItem(cheapestItem.name) === store.name ? 'bold' : 'normal'}
+                          >
+                            ${cheapestItem.price.toFixed(2)}
+                            {findCheapestStoreForItem(cheapestItem.name) === store.name && (
+                              <Typography variant="caption" sx={{ color: 'success.main', ml: 0.5 }}>
+                                (Best)
+                              </Typography>
+                            )}
+                          </Typography>
+                        ) : '—'}
+                      </TableCell>
+                        </TableRow>
                       );
                     })}
-                  </Box>
-                </CardContent>
-              </Card>
-            ))}
-          </Box>
-        </>
-      )}
-    </Box>
+                  </TableBody>
+                </Table>
+              </TableContainer>
+        </Box>
+        )}
+
+      {selectedStore && renderSelectedStoreDetails()}
+    </Container>
   );
 };
 

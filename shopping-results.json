@@ -1,0 +1,3027 @@
+{
+  "searchParams": {
+    "products": [
+      "apples",
+      "milk"
+    ],
+    "stores": [
+      "Harris Teeter",
+      "Walmart"
+    ],
+    "includeNearby": true
+  },
+  "timestamp": "2025-04-16T02:51:47.157Z",
+  "summary": {
+    "apples": {
+      "nearby": {
+        "success": true,
+        "totalProducts": 40,
+        "totalStores": 18,
+        "timestamp": "2025-04-16T02:51:28.123Z"
+      },
+      "Harris Teeter": {
+        "success": true,
+        "totalProducts": 10,
+        "totalStores": 1,
+        "timestamp": "2025-04-16T02:51:28.971Z"
+      },
+      "Walmart": {
+        "success": true,
+        "totalProducts": 21,
+        "totalStores": 5,
+        "timestamp": "2025-04-16T02:51:38.117Z"
+      }
+    },
+    "milk": {
+      "nearby": {
+        "success": true,
+        "totalProducts": 40,
+        "totalStores": 12,
+        "timestamp": "2025-04-16T02:51:37.398Z"
+      },
+      "Harris Teeter": {
+        "success": true,
+        "totalProducts": 40,
+        "totalStores": 2,
+        "timestamp": "2025-04-16T02:51:46.734Z"
+      },
+      "Walmart": {
+        "success": true,
+        "totalProducts": 32,
+        "totalStores": 3,
+        "timestamp": "2025-04-16T02:51:47.156Z"
+      }
+    }
+  },
+  "detailedResults": [
+    {
+      "product": "apples",
+      "store": "nearby",
+      "timestamp": "2025-04-16T02:51:28.123Z",
+      "result": {
+        "success": true,
+        "stores": [
+          {
+            "name": "12:15 AM",
+            "distance": null,
+            "items": [
+              {
+                "name": "Walgreens Rockit Apples 3 ct",
+                "price": "$4.18",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          },
+          {
+            "name": "15% OFF",
+            "distance": 2,
+            "items": [
+              {
+                "name": "Apple Product",
+                "price": "$0.80",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          },
+          {
+            "name": "16% OFF",
+            "distance": 2,
+            "items": [
+              {
+                "name": "Apple Product",
+                "price": "$0.62",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          },
+          {
+            "name": "Amazon.com - Seller",
+            "distance": null,
+            "items": [
+              {
+                "name": "Red Delicious Apples ( Washington State Fresh Produce)",
+                "price": "$10.65",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          },
+          {
+            "name": "DoorDash - Food Lion",
+            "distance": null,
+            "items": [
+              {
+                "name": "CMI Apples Envy Apples 2 lb",
+                "price": "$3.99",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          },
+          {
+            "name": "Gala Apples 3 lb Bag",
+            "distance": 10,
+            "items": [
+              {
+                "name": "Apple Product",
+                "price": "$3.56",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          },
+          {
+            "name": "Harris Teeter",
+            "distance": 2,
+            "items": [
+              {
+                "name": "Large Gala Apple - Each",
+                "price": "$1.94",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Apple Product",
+                "price": "$3.99",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Apple Product",
+                "price": "$4.99",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Cosmic Crisp Premium Apples",
+                "price": "$6.99",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Small Organic Fuji Apples",
+                "price": "$1.76",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Small Red Delicious Apple – Each",
+                "price": "$1.59",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          },
+          {
+            "name": "Local Grocery",
+            "distance": 4,
+            "items": [
+              {
+                "name": "Gopuff Gala Apple 1ct",
+                "price": "$0.69",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Honeycrisp Apple - each",
+                "price": "$1.59",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Rockit Apple",
+                "price": "$7.99",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Gala Apples",
+                "price": "$6.13",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Cosmic Crisp Apples",
+                "price": "$6.42",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Red Delicious Apples",
+                "price": "$6.73",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          },
+          {
+            "name": "Lyman Orchards",
+            "distance": null,
+            "items": [
+              {
+                "name": "Lyman Orchards Gala",
+                "price": "$29.95",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          },
+          {
+            "name": "MiamiFruit",
+            "distance": null,
+            "items": [
+              {
+                "name": "Miami Fruit Hidden Rose Apple",
+                "price": "$27.00",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          },
+          {
+            "name": "Modi Apples",
+            "distance": null,
+            "items": [
+              {
+                "name": "Modi Apples",
+                "price": "$12.19",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          },
+          {
+            "name": "Online Retailer",
+            "distance": null,
+            "items": [
+              {
+                "name": "Apple Gala",
+                "price": "$1.99",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Evercrisp Apples",
+                "price": "$3.49",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Everfresh Marketplace Rockit Apples",
+                "price": "$7.75",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "SugarBee Apples Bag",
+                "price": "$8.85",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          },
+          {
+            "name": "Rave Apples",
+            "distance": null,
+            "items": [
+              {
+                "name": "Rave Apples",
+                "price": "$1.15",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          },
+          {
+            "name": "Sam's Club",
+            "distance": 6,
+            "items": [
+              {
+                "name": "Washington Apples Fuji 80 oz",
+                "price": "$5.86",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Honeybear Cubbies Honeycrisp Apples",
+                "price": "$6.22",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          },
+          {
+            "name": "Target",
+            "distance": 2,
+            "items": [
+              {
+                "name": "Fresh Honeycrisp Apple",
+                "price": "$1.94",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Fresh Honeycrisp Apples, 3 lb Bag, Size: 3 lbs, Green",
+                "price": "$7.98",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Good & Gather Gala Apples",
+                "price": "$3.79",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Good & Gather Fuji Apples",
+                "price": "$4.39",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Good & Gather Red Delicious Apples",
+                "price": "$4.59",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Good & Gather Granny Smith Apples",
+                "price": "$4.99",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Good & Gather Honeycrisp Apples",
+                "price": "$8.29",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Good & Gather Pink Lady Apples 3lb Bag",
+                "price": "$3.99",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          },
+          {
+            "name": "The Farmers On Wheels",
+            "distance": null,
+            "items": [
+              {
+                "name": "Apple Product",
+                "price": "$32.00",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          },
+          {
+            "name": "Walmart",
+            "distance": 2,
+            "items": [
+              {
+                "name": "Fresh Pink Lady Apple, Each, Size: 8 oz, Black",
+                "price": "$1.17",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Crunch Pak Apple Slices Sweet Snack Packs",
+                "price": "$4.97",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          },
+          {
+            "name": "Other",
+            "distance": null,
+            "items": [
+              {
+                "name": "Granny Smith Apples 3 lb Bag",
+                "price": "$2.99",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          }
+        ],
+        "products": [
+          {
+            "name": "Walgreens Rockit Apples 3 ct",
+            "price": "$4.18",
+            "store": "12:15 AM",
+            "distance": null,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 4.18
+          },
+          {
+            "name": "Apple Product",
+            "price": "$0.80",
+            "store": "15% OFF",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "discount": "15%",
+            "priceValue": 0.8,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Apple Product",
+            "price": "$0.62",
+            "store": "16% OFF",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "discount": "16%",
+            "priceValue": 0.62,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Red Delicious Apples ( Washington State Fresh Produce)",
+            "price": "$10.65",
+            "store": "Amazon.com - Seller",
+            "distance": null,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 10.65
+          },
+          {
+            "name": "CMI Apples Envy Apples 2 lb",
+            "price": "$3.99",
+            "store": "DoorDash - Food Lion",
+            "distance": null,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 3.99
+          },
+          {
+            "name": "Apple Product",
+            "price": "$3.56",
+            "store": "Gala Apples 3 lb Bag",
+            "distance": 10,
+            "method": "standard-.MUWJ8c",
+            "discount": "16%",
+            "priceValue": 3.56,
+            "distanceText": "10 mi"
+          },
+          {
+            "name": "Large Gala Apple - Each",
+            "price": "$1.94",
+            "store": "Harris Teeter",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 1.94,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Apple Product",
+            "price": "$3.99",
+            "store": "Harris Teeter",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "discount": "33%",
+            "priceValue": 3.99,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Apple Product",
+            "price": "$4.99",
+            "store": "Harris Teeter",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "discount": "16%",
+            "priceValue": 4.99,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Cosmic Crisp Premium Apples",
+            "price": "$6.99",
+            "store": "Harris Teeter",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 6.99,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Small Organic Fuji Apples",
+            "price": "$1.76",
+            "store": "Harris Teeter",
+            "distance": 5,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 1.76,
+            "distanceText": "5 mi"
+          },
+          {
+            "name": "Small Red Delicious Apple – Each",
+            "price": "$1.59",
+            "store": "Harris Teeter",
+            "distance": 25,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 1.59,
+            "distanceText": "25 mi"
+          },
+          {
+            "name": "Gopuff Gala Apple 1ct",
+            "price": "$0.69",
+            "store": "Local Grocery",
+            "distance": 4,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 0.69,
+            "distanceText": "4 mi"
+          },
+          {
+            "name": "Honeycrisp Apple - each",
+            "price": "$1.59",
+            "store": "Local Grocery",
+            "distance": 4,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 1.59,
+            "distanceText": "4 mi"
+          },
+          {
+            "name": "Rockit Apple",
+            "price": "$7.99",
+            "store": "Local Grocery",
+            "distance": 4,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 7.99,
+            "distanceText": "4 mi"
+          },
+          {
+            "name": "Gala Apples",
+            "price": "$6.13",
+            "store": "Local Grocery",
+            "distance": 6,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 6.13,
+            "distanceText": "6 mi"
+          },
+          {
+            "name": "Cosmic Crisp Apples",
+            "price": "$6.42",
+            "store": "Local Grocery",
+            "distance": 6,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 6.42,
+            "distanceText": "6 mi"
+          },
+          {
+            "name": "Red Delicious Apples",
+            "price": "$6.73",
+            "store": "Local Grocery",
+            "distance": 6,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 6.73,
+            "distanceText": "6 mi"
+          },
+          {
+            "name": "Lyman Orchards Gala",
+            "price": "$29.95",
+            "store": "Lyman Orchards",
+            "distance": null,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 29.95
+          },
+          {
+            "name": "Miami Fruit Hidden Rose Apple",
+            "price": "$27.00",
+            "store": "MiamiFruit",
+            "distance": null,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 27
+          },
+          {
+            "name": "Modi Apples",
+            "price": "$12.19",
+            "store": "Modi Apples",
+            "distance": null,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 12.19
+          },
+          {
+            "name": "Apple Gala",
+            "price": "$1.99",
+            "store": "Online Retailer",
+            "distance": null,
+            "method": "standard-.MUWJ8c",
+            "deliveryInfo": "Apr 16",
+            "priceValue": 1.99
+          },
+          {
+            "name": "Evercrisp Apples",
+            "price": "$3.49",
+            "store": "Online Retailer",
+            "distance": null,
+            "method": "standard-.MUWJ8c",
+            "deliveryInfo": "Apr 164.9(17)",
+            "priceValue": 3.49
+          },
+          {
+            "name": "Everfresh Marketplace Rockit Apples",
+            "price": "$7.75",
+            "store": "Online Retailer",
+            "distance": null,
+            "method": "standard-.MUWJ8c",
+            "deliveryInfo": "Apr 16",
+            "priceValue": 7.75
+          },
+          {
+            "name": "SugarBee Apples Bag",
+            "price": "$8.85",
+            "store": "Online Retailer",
+            "distance": null,
+            "method": "standard-.MUWJ8c",
+            "deliveryInfo": "Apr 163.0(119)",
+            "priceValue": 8.85
+          },
+          {
+            "name": "Rave Apples",
+            "price": "$1.15",
+            "store": "Rave Apples",
+            "distance": null,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 1.15
+          },
+          {
+            "name": "Washington Apples Fuji 80 oz",
+            "price": "$5.86",
+            "store": "Sam's Club",
+            "distance": 6,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 5.86,
+            "distanceText": "6 mi"
+          },
+          {
+            "name": "Honeybear Cubbies Honeycrisp Apples",
+            "price": "$6.22",
+            "store": "Sam's Club",
+            "distance": 6,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 6.22,
+            "distanceText": "6 mi"
+          },
+          {
+            "name": "Fresh Honeycrisp Apple",
+            "price": "$1.94",
+            "store": "Target",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "rating": "1.6(1.6K)",
+            "priceValue": 1.94,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Fresh Honeycrisp Apples, 3 lb Bag, Size: 3 lbs, Green",
+            "price": "$7.98",
+            "store": "Target",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "rating": "1.6(1.2K)",
+            "priceValue": 7.98,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Good & Gather Gala Apples",
+            "price": "$3.79",
+            "store": "Target",
+            "distance": 4,
+            "method": "standard-.MUWJ8c",
+            "rating": "2.6(66)",
+            "priceValue": 3.79,
+            "distanceText": "4 mi"
+          },
+          {
+            "name": "Good & Gather Fuji Apples",
+            "price": "$4.39",
+            "store": "Target",
+            "distance": 4,
+            "method": "standard-.MUWJ8c",
+            "rating": "2.5(157)",
+            "priceValue": 4.39,
+            "distanceText": "4 mi"
+          },
+          {
+            "name": "Good & Gather Red Delicious Apples",
+            "price": "$4.59",
+            "store": "Target",
+            "distance": 4,
+            "method": "standard-.MUWJ8c",
+            "rating": "2.8(57)",
+            "priceValue": 4.59,
+            "distanceText": "4 mi"
+          },
+          {
+            "name": "Good & Gather Granny Smith Apples",
+            "price": "$4.99",
+            "store": "Target",
+            "distance": 4,
+            "method": "standard-.MUWJ8c",
+            "rating": "3.0(89)",
+            "priceValue": 4.99,
+            "distanceText": "4 mi"
+          },
+          {
+            "name": "Good & Gather Honeycrisp Apples",
+            "price": "$8.29",
+            "store": "Target",
+            "distance": 4,
+            "method": "standard-.MUWJ8c",
+            "rating": "2.3(152)",
+            "priceValue": 8.29,
+            "distanceText": "4 mi"
+          },
+          {
+            "name": "Good & Gather Pink Lady Apples 3lb Bag",
+            "price": "$3.99",
+            "store": "Target",
+            "distance": null,
+            "method": "standard-.MUWJ8c",
+            "rating": "2.8(115)",
+            "priceValue": 3.99
+          },
+          {
+            "name": "Apple Product",
+            "price": "$32.00",
+            "store": "The Farmers On Wheels",
+            "distance": null,
+            "method": "standard-.MUWJ8c",
+            "discount": "19%",
+            "priceValue": 32
+          },
+          {
+            "name": "Fresh Pink Lady Apple, Each, Size: 8 oz, Black",
+            "price": "$1.17",
+            "store": "Walmart",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 1.17,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Crunch Pak Apple Slices Sweet Snack Packs",
+            "price": "$4.97",
+            "store": "Walmart",
+            "distance": 3,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 4.97,
+            "distanceText": "3 mi"
+          },
+          {
+            "name": "Granny Smith Apples 3 lb Bag",
+            "price": "$2.99",
+            "store": null,
+            "distance": null,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Thu (Free)Free 2-day returns1.8(447)",
+            "priceValue": 2.99
+          }
+        ],
+        "totalStores": 18,
+        "totalProducts": 40
+      }
+    },
+    {
+      "product": "apples",
+      "store": "Harris Teeter",
+      "timestamp": "2025-04-16T02:51:28.971Z",
+      "result": {
+        "success": true,
+        "stores": [
+          {
+            "name": "Harris Teeter",
+            "distance": 2,
+            "items": [
+              {
+                "name": "Our Family Apples Pink Lady Apples",
+                "price": "$1.61",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Apple Product",
+                "price": "$2.00",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Apple Product",
+                "price": "$2.00",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Apple Product",
+                "price": "$4.49",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Apple Product",
+                "price": "$4.99",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Apple Product",
+                "price": "$4.99",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Kroger Gala Apples 3 Pound Bag",
+                "price": "$5.49",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Cosmic Crisp Premium Apples",
+                "price": "$6.99",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Harris Teeter Applesauce Unsweetened 23 oz",
+                "price": "$2.89",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Apple Product",
+                "price": "$3.49",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          }
+        ],
+        "products": [
+          {
+            "name": "Our Family Apples Pink Lady Apples",
+            "price": "$1.61",
+            "store": "Harris Teeter",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 1.61,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Apple Product",
+            "price": "$2.00",
+            "store": "Harris Teeter",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "discount": "25%",
+            "priceValue": 2,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Apple Product",
+            "price": "$2.00",
+            "store": "Harris Teeter",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "discount": "25%",
+            "priceValue": 2,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Apple Product",
+            "price": "$4.49",
+            "store": "Harris Teeter",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "discount": "25%",
+            "priceValue": 4.49,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Apple Product",
+            "price": "$4.99",
+            "store": "Harris Teeter",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "discount": "16%",
+            "priceValue": 4.99,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Apple Product",
+            "price": "$4.99",
+            "store": "Harris Teeter",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "discount": "28%",
+            "priceValue": 4.99,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Kroger Gala Apples 3 Pound Bag",
+            "price": "$5.49",
+            "store": "Harris Teeter",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 5.49,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Cosmic Crisp Premium Apples",
+            "price": "$6.99",
+            "store": "Harris Teeter",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 6.99,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Harris Teeter Applesauce Unsweetened 23 oz",
+            "price": "$2.89",
+            "store": "Harris Teeter",
+            "distance": 5,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 2.89,
+            "distanceText": "5 mi"
+          },
+          {
+            "name": "Apple Product",
+            "price": "$3.49",
+            "store": "Harris Teeter",
+            "distance": 5,
+            "method": "standard-.MUWJ8c",
+            "discount": "25%",
+            "priceValue": 3.49,
+            "distanceText": "5 mi"
+          }
+        ],
+        "totalStores": 1,
+        "totalProducts": 10
+      }
+    },
+    {
+      "product": "apples",
+      "store": "Walmart",
+      "timestamp": "2025-04-16T02:51:38.117Z",
+      "result": {
+        "success": true,
+        "stores": [
+          {
+            "name": "Walmart",
+            "distance": 2,
+            "items": [
+              {
+                "name": "Fresh Pink Lady Apple, Each, Size: 8 oz, Black",
+                "price": "$1.17",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Jewel-Osco Crunch Pak Bluey Peeled Organic Apple Slices",
+                "price": "$3.87",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "That's It. Crispy Gluten-Free Organic Apple + Cinnamon Crunchables",
+                "price": "$4.98",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Fresh Organic Granny Smith Apples, 3 lb Pouch, Size: 3 lbs",
+                "price": "$5.67",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Marketside Fresh Cut Apple Blend 20 oz Tray",
+                "price": "$7.27",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Expert Gardener 'granny Smith' Apple",
+                "price": "$29.97",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Expert Gardener 3.75gal Red Delicious Apple Live Tree Grower Pot Full Sun, Size: 3.75 gal, Green",
+                "price": "$29.97",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Expert Gardener 3.75gal Golden Delicious Apple Live Tree Grower Pot Full Sun, Size: 3.75 gal, Green",
+                "price": "$29.97",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Crunch Pak Sweet & Tart Sliced Apples, Grapes, & Caramel Dip",
+                "price": "$11.97",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Fresh Organic Cosmic Apples, 2 lb Bag, Size: 2 lbs, Black",
+                "price": "$4.92",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Freeze-Dried Sweet Apples",
+                "price": "$9.98",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          },
+          {
+            "name": "Walmart - Feel It",
+            "distance": null,
+            "items": [
+              {
+                "name": "Soft dried apples, Size: Regular",
+                "price": "$6.00",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          },
+          {
+            "name": "Walmart - OJCommerce",
+            "distance": null,
+            "items": [
+              {
+                "name": "Walmart - OJCommerce",
+                "price": "$27.76",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          },
+          {
+            "name": "Walmart - Seller",
+            "distance": null,
+            "items": [
+              {
+                "name": "Apple Product",
+                "price": "$3.91",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Margaret Holmes Fried Apples",
+                "price": "$14.99",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Golden State Fruit Gourmet Deluxe Collection Fruit Gift Box",
+                "price": "$38.98",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Dole Individual Quick Frozen Sliced Apple",
+                "price": "$101.15",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Commodity Fruit Granny Smith Diced Apple",
+                "price": "$172.61",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Quality Chef Cinnamon Apple Soup",
+                "price": "$190.29",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          },
+          {
+            "name": "Other",
+            "distance": 2,
+            "items": [
+              {
+                "name": "Great Value Freeze Dried Fuji Apple Fruit Crisps",
+                "price": "$3.97",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Great Value Freeze Dried Apple Crisps Multi Pack",
+                "price": "$5.48",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          }
+        ],
+        "products": [
+          {
+            "name": "Fresh Pink Lady Apple, Each, Size: 8 oz, Black",
+            "price": "$1.17",
+            "store": "Walmart",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 1.17,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Jewel-Osco Crunch Pak Bluey Peeled Organic Apple Slices",
+            "price": "$3.87",
+            "store": "Walmart",
+            "distance": 3,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 3.87,
+            "distanceText": "3 mi"
+          },
+          {
+            "name": "That's It. Crispy Gluten-Free Organic Apple + Cinnamon Crunchables",
+            "price": "$4.98",
+            "store": "Walmart",
+            "distance": 3,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 4.98,
+            "distanceText": "3 mi"
+          },
+          {
+            "name": "Fresh Organic Granny Smith Apples, 3 lb Pouch, Size: 3 lbs",
+            "price": "$5.67",
+            "store": "Walmart",
+            "distance": 3,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 5.67,
+            "distanceText": "3 mi"
+          },
+          {
+            "name": "Marketside Fresh Cut Apple Blend 20 oz Tray",
+            "price": "$7.27",
+            "store": "Walmart",
+            "distance": 3,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 7.27,
+            "distanceText": "3 mi"
+          },
+          {
+            "name": "Expert Gardener 'granny Smith' Apple",
+            "price": "$29.97",
+            "store": "Walmart",
+            "distance": 3,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 29.97,
+            "distanceText": "3 mi"
+          },
+          {
+            "name": "Expert Gardener 3.75gal Red Delicious Apple Live Tree Grower Pot Full Sun, Size: 3.75 gal, Green",
+            "price": "$29.97",
+            "store": "Walmart",
+            "distance": 3,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 29.97,
+            "distanceText": "3 mi"
+          },
+          {
+            "name": "Expert Gardener 3.75gal Golden Delicious Apple Live Tree Grower Pot Full Sun, Size: 3.75 gal, Green",
+            "price": "$29.97",
+            "store": "Walmart",
+            "distance": 3,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 29.97,
+            "distanceText": "3 mi"
+          },
+          {
+            "name": "Crunch Pak Sweet & Tart Sliced Apples, Grapes, & Caramel Dip",
+            "price": "$11.97",
+            "store": "Walmart",
+            "distance": 5,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 11.97,
+            "distanceText": "5 mi"
+          },
+          {
+            "name": "Fresh Organic Cosmic Apples, 2 lb Bag, Size: 2 lbs, Black",
+            "price": "$4.92",
+            "store": "Walmart",
+            "distance": 26,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 4.92,
+            "distanceText": "26 mi"
+          },
+          {
+            "name": "Freeze-Dried Sweet Apples",
+            "price": "$9.98",
+            "store": "Walmart",
+            "distance": null,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 9.98
+          },
+          {
+            "name": "Soft dried apples, Size: Regular",
+            "price": "$6.00",
+            "store": "Walmart - Feel It",
+            "distance": null,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 6
+          },
+          {
+            "name": "Walmart - OJCommerce",
+            "price": "$27.76",
+            "store": "Walmart - OJCommerce",
+            "distance": null,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 27.76
+          },
+          {
+            "name": "Apple Product",
+            "price": "$3.91",
+            "store": "Walmart - Seller",
+            "distance": null,
+            "method": "standard-.MUWJ8c",
+            "discount": "28%",
+            "priceValue": 3.91
+          },
+          {
+            "name": "Margaret Holmes Fried Apples",
+            "price": "$14.99",
+            "store": "Walmart - Seller",
+            "distance": null,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 14.99
+          },
+          {
+            "name": "Golden State Fruit Gourmet Deluxe Collection Fruit Gift Box",
+            "price": "$38.98",
+            "store": "Walmart - Seller",
+            "distance": null,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 38.98
+          },
+          {
+            "name": "Dole Individual Quick Frozen Sliced Apple",
+            "price": "$101.15",
+            "store": "Walmart - Seller",
+            "distance": null,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 101.15
+          },
+          {
+            "name": "Commodity Fruit Granny Smith Diced Apple",
+            "price": "$172.61",
+            "store": "Walmart - Seller",
+            "distance": null,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 172.61
+          },
+          {
+            "name": "Quality Chef Cinnamon Apple Soup",
+            "price": "$190.29",
+            "store": "Walmart - Seller",
+            "distance": null,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 190.29
+          },
+          {
+            "name": "Great Value Freeze Dried Fuji Apple Fruit Crisps",
+            "price": "$3.97",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Value Freeze Dried Fuji Apple Fruit Crisps$3.97Walmart & moreFree 90-day returns3.5(37)",
+            "priceValue": 3.97,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Great Value Freeze Dried Apple Crisps Multi Pack",
+            "price": "$5.48",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Value Freeze Dried Apple Crisps Multi Pack$5.48Walmart & moreGet it tomorrow ($17)Free 90-day returns3.9(85)",
+            "priceValue": 5.48,
+            "distanceText": "2 mi"
+          }
+        ],
+        "totalStores": 5,
+        "totalProducts": 21
+      }
+    },
+    {
+      "product": "milk",
+      "store": "nearby",
+      "timestamp": "2025-04-16T02:51:37.398Z",
+      "result": {
+        "success": true,
+        "stores": [
+          {
+            "name": "Dollar General",
+            "distance": 0.7,
+            "items": [
+              {
+                "name": "Shamrock Farms Strawberry Milk Bottle",
+                "price": "$1.75",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Cub Whole Milk 1 Gal",
+                "price": "$4.10",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Prairie Farms Whole Milk 1 Gal",
+                "price": "$2.25",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Meadow Gold Whole Milk",
+                "price": "$3.25",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Shamrock Farms Homogenized Milk Jug",
+                "price": "$3.35",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          },
+          {
+            "name": "DoorDash - Food Lion",
+            "distance": null,
+            "items": [
+              {
+                "name": "Food Lion Whole Milk Jug",
+                "price": "$2.69",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          },
+          {
+            "name": "Express Mart & Tobacco",
+            "distance": 3,
+            "items": [
+              {
+                "name": "Friendly Farms Whole Milk",
+                "price": "$4.99",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          },
+          {
+            "name": "Good Eggs",
+            "distance": null,
+            "items": [
+              {
+                "name": "Organic Whole Milk Straus Family Creamery",
+                "price": "$6.29",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          },
+          {
+            "name": "Harris Teeter",
+            "distance": 2,
+            "items": [
+              {
+                "name": "Shamrock Farms Whole Milk",
+                "price": "$2.99",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Apple Product",
+                "price": "$3.00",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "A2 Milk Grass Fed Whole Milk",
+                "price": "$6.49",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Organic Valley Grassmilk Whole Milk",
+                "price": "$7.19",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          },
+          {
+            "name": "Local Grocery",
+            "distance": 3,
+            "items": [
+              {
+                "name": "a2 Milk Milk Whole",
+                "price": "$4.36",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "That's Smart! Milk",
+                "price": "$4.99",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "PET Whole Milk Jug",
+                "price": "$2.49",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          },
+          {
+            "name": "Online Retailer",
+            "distance": 4,
+            "items": [
+              {
+                "name": "Lactaid Lactose Free Whole Milk",
+                "price": "$6.59",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Friendly Farms Friendly Farm Whole Milk 1gal",
+                "price": "$2.45",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Publix Whole Milk",
+                "price": "$2.75",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          },
+          {
+            "name": "Sam's Club",
+            "distance": 6,
+            "items": [
+              {
+                "name": "Member's Mark Whole Milk 1 Gal",
+                "price": "$3.52",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          },
+          {
+            "name": "Target",
+            "distance": 2,
+            "items": [
+              {
+                "name": "Organic Valley Whole Milk 64 oz",
+                "price": "$5.92",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Horizon Organic High Vitamin D Whole Milk Jug",
+                "price": "$8.97",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Horizon Organic Whole Milk",
+                "price": "$5.47",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Good & Gather Whole Milk",
+                "price": "$2.29",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          },
+          {
+            "name": "Walgreens.com",
+            "distance": 3,
+            "items": [
+              {
+                "name": "Fairlife Strawberry Milk",
+                "price": "$2.89",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Fairlife Lactose Free Ultra-Filtered Whole Milk",
+                "price": "$5.09",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          },
+          {
+            "name": "Walmart",
+            "distance": 5,
+            "items": [
+              {
+                "name": "TruMoo Minecraft Green Vanilla Milk",
+                "price": "$3.36",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          },
+          {
+            "name": "Other",
+            "distance": 0.7,
+            "items": [
+              {
+                "name": "Member's Mark 1% Reduced Fat Milk",
+                "price": "$3.50",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Galleria Market Great Value Milk",
+                "price": "$1.43",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Shamrock Farms 2% Reduced Fat Milk",
+                "price": "$1.79",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Great Value Whole Milk with Vitamin D",
+                "price": "$2.37",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Royal Liquor Great Value 2% Milk 1 gal",
+                "price": "$2.37",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Apple Product",
+                "price": "$1.49",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Fairlife 2% Reduced Fat Ultra Filtered Milk",
+                "price": "$5.09",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Good & Gather 1% Reduced Fat Milk",
+                "price": "$1.39",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Good & Gather 1% Low Fat Milk",
+                "price": "$1.39",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Clover Valley Reduced Fat 2% Milk",
+                "price": "$3.95",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Fairlife Fat Free Ultra Filtered Milk",
+                "price": "$4.99",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Lactaid Lactose Free 2% Reduced Fat Milk",
+                "price": "$6.59",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Prairie Farms 2% Reduced Fat Milk",
+                "price": "$2.25",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Horizon Organic Reduced Fat Milk",
+                "price": "$6.79",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          }
+        ],
+        "products": [
+          {
+            "name": "Shamrock Farms Strawberry Milk Bottle",
+            "price": "$1.75",
+            "store": "Dollar General",
+            "distance": 0.7,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 1.75,
+            "distanceText": "0.7 mi"
+          },
+          {
+            "name": "Cub Whole Milk 1 Gal",
+            "price": "$4.10",
+            "store": "Dollar General",
+            "distance": 0.7,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 4.1,
+            "distanceText": "0.7 mi"
+          },
+          {
+            "name": "Prairie Farms Whole Milk 1 Gal",
+            "price": "$2.25",
+            "store": "Dollar General",
+            "distance": 13,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 2.25,
+            "distanceText": "13 mi"
+          },
+          {
+            "name": "Meadow Gold Whole Milk",
+            "price": "$3.25",
+            "store": "Dollar General",
+            "distance": 13,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 3.25,
+            "distanceText": "13 mi"
+          },
+          {
+            "name": "Shamrock Farms Homogenized Milk Jug",
+            "price": "$3.35",
+            "store": "Dollar General",
+            "distance": 13,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 3.35,
+            "distanceText": "13 mi"
+          },
+          {
+            "name": "Food Lion Whole Milk Jug",
+            "price": "$2.69",
+            "store": "DoorDash - Food Lion",
+            "distance": null,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 2.69
+          },
+          {
+            "name": "Friendly Farms Whole Milk",
+            "price": "$4.99",
+            "store": "Express Mart & Tobacco",
+            "distance": 3,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 4.99,
+            "distanceText": "3 mi"
+          },
+          {
+            "name": "Organic Whole Milk Straus Family Creamery",
+            "price": "$6.29",
+            "store": "Good Eggs",
+            "distance": null,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 6.29
+          },
+          {
+            "name": "Shamrock Farms Whole Milk",
+            "price": "$2.99",
+            "store": "Harris Teeter",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 2.99,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Apple Product",
+            "price": "$3.00",
+            "store": "Harris Teeter",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "discount": "20%",
+            "priceValue": 3,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "A2 Milk Grass Fed Whole Milk",
+            "price": "$6.49",
+            "store": "Harris Teeter",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 6.49,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Organic Valley Grassmilk Whole Milk",
+            "price": "$7.19",
+            "store": "Harris Teeter",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 7.19,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "a2 Milk Milk Whole",
+            "price": "$4.36",
+            "store": "Local Grocery",
+            "distance": 3,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 4.36,
+            "distanceText": "3 mi"
+          },
+          {
+            "name": "That's Smart! Milk",
+            "price": "$4.99",
+            "store": "Local Grocery",
+            "distance": 3,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 4.99,
+            "distanceText": "3 mi"
+          },
+          {
+            "name": "PET Whole Milk Jug",
+            "price": "$2.49",
+            "store": "Local Grocery",
+            "distance": 4,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 2.49,
+            "distanceText": "4 mi"
+          },
+          {
+            "name": "Lactaid Lactose Free Whole Milk",
+            "price": "$6.59",
+            "store": "Online Retailer",
+            "distance": 4,
+            "method": "standard-.MUWJ8c",
+            "deliveryInfo": "Apr 16Free 90-day returns4.4(943)",
+            "priceValue": 6.59,
+            "distanceText": "4 mi"
+          },
+          {
+            "name": "Friendly Farms Friendly Farm Whole Milk 1gal",
+            "price": "$2.45",
+            "store": "Online Retailer",
+            "distance": null,
+            "method": "standard-.MUWJ8c",
+            "deliveryInfo": "Apr 16",
+            "priceValue": 2.45
+          },
+          {
+            "name": "Publix Whole Milk",
+            "price": "$2.75",
+            "store": "Online Retailer",
+            "distance": null,
+            "method": "standard-.MUWJ8c",
+            "deliveryInfo": "Apr 165.0(1)",
+            "priceValue": 2.75
+          },
+          {
+            "name": "Member's Mark Whole Milk 1 Gal",
+            "price": "$3.52",
+            "store": "Sam's Club",
+            "distance": 6,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 3.52,
+            "distanceText": "6 mi"
+          },
+          {
+            "name": "Organic Valley Whole Milk 64 oz",
+            "price": "$5.92",
+            "store": "Target",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "rating": "4.6(1.3K)",
+            "priceValue": 5.92,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Horizon Organic High Vitamin D Whole Milk Jug",
+            "price": "$8.97",
+            "store": "Target",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "rating": "4.4(1.2K)",
+            "priceValue": 8.97,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Horizon Organic Whole Milk",
+            "price": "$5.47",
+            "store": "Target",
+            "distance": 3,
+            "method": "standard-.MUWJ8c",
+            "rating": "4.5(1.4K)",
+            "priceValue": 5.47,
+            "distanceText": "3 mi"
+          },
+          {
+            "name": "Good & Gather Whole Milk",
+            "price": "$2.29",
+            "store": "Target",
+            "distance": 4,
+            "method": "standard-.MUWJ8c",
+            "rating": "3.3(587)",
+            "priceValue": 2.29,
+            "distanceText": "4 mi"
+          },
+          {
+            "name": "Fairlife Strawberry Milk",
+            "price": "$2.89",
+            "store": "Walgreens.com",
+            "distance": 3,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 2.89,
+            "distanceText": "3 mi"
+          },
+          {
+            "name": "Fairlife Lactose Free Ultra-Filtered Whole Milk",
+            "price": "$5.09",
+            "store": "Walgreens.com",
+            "distance": 3,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 5.09,
+            "distanceText": "3 mi"
+          },
+          {
+            "name": "TruMoo Minecraft Green Vanilla Milk",
+            "price": "$3.36",
+            "store": "Walmart",
+            "distance": 5,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 3.36,
+            "distanceText": "5 mi"
+          },
+          {
+            "name": "Member's Mark 1% Reduced Fat Milk",
+            "price": "$3.50",
+            "store": null,
+            "distance": 0.7,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Milk$3.50Dollar General & more30-day returns4.1(1.5K)",
+            "priceValue": 3.5,
+            "distanceText": "0.7 mi"
+          },
+          {
+            "name": "Galleria Market Great Value Milk",
+            "price": "$1.43",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Value Milk$1.43Walmart & moreGet it tomorrow ($17)Free 90-day returns2.3(1.8K)",
+            "priceValue": 1.43,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Shamrock Farms 2% Reduced Fat Milk",
+            "price": "$1.79",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Milk$1.79Harris Teeter60-day returns3.8(34)",
+            "priceValue": 1.79,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Great Value Whole Milk with Vitamin D",
+            "price": "$2.37",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Value Whole Milk with Vitamin D$2.37Walmart & moreGet it tomorrow ($17)Free 90-day returns2.5(7.1K)",
+            "priceValue": 2.37,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Royal Liquor Great Value 2% Milk 1 gal",
+            "price": "$2.37",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Value 2% Milk 1 gal$2.37Walmart & moreGet it tomorrow ($17)Free 90-day returns2.8(4.7K)",
+            "priceValue": 2.37,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Apple Product",
+            "price": "$1.49",
+            "store": null,
+            "distance": 3,
+            "method": "standard-.MUWJ8c",
+            "discount": "48%",
+            "returnPolicy": "Milk$1.49$3Walgreens.comFree 30-day returns4.8(660)",
+            "priceValue": 1.49,
+            "distanceText": "3 mi"
+          },
+          {
+            "name": "Fairlife 2% Reduced Fat Ultra Filtered Milk",
+            "price": "$5.09",
+            "store": null,
+            "distance": 3,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Ultra Filtered Milk$5.09Walgreens.com & moreFree 30-day returns4.6(3.5K)",
+            "priceValue": 5.09,
+            "distanceText": "3 mi"
+          },
+          {
+            "name": "Good & Gather 1% Reduced Fat Milk",
+            "price": "$1.39",
+            "store": null,
+            "distance": 4,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Milk$1.39Target & moreFree 90-day returns3.0(614)",
+            "priceValue": 1.39,
+            "distanceText": "4 mi"
+          },
+          {
+            "name": "Good & Gather 1% Low Fat Milk",
+            "price": "$1.39",
+            "store": null,
+            "distance": 4,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Milk$1.39Target & moreFree 90-day returns3.2(208)",
+            "priceValue": 1.39,
+            "distanceText": "4 mi"
+          },
+          {
+            "name": "Clover Valley Reduced Fat 2% Milk",
+            "price": "$3.95",
+            "store": null,
+            "distance": 4,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "2% Milk$3.95Dollar General30-day returns5.0(1)",
+            "priceValue": 3.95,
+            "distanceText": "4 mi"
+          },
+          {
+            "name": "Fairlife Fat Free Ultra Filtered Milk",
+            "price": "$4.99",
+            "store": null,
+            "distance": 4,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Free Ultra Filtered Milk$4.99Target & moreFree 90-day returns4.6(1.7K)",
+            "priceValue": 4.99,
+            "distanceText": "4 mi"
+          },
+          {
+            "name": "Lactaid Lactose Free 2% Reduced Fat Milk",
+            "price": "$6.59",
+            "store": null,
+            "distance": 4,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Milk$6.59TargetFree 90-day returns4.6(3K)",
+            "priceValue": 6.59,
+            "distanceText": "4 mi"
+          },
+          {
+            "name": "Prairie Farms 2% Reduced Fat Milk",
+            "price": "$2.25",
+            "store": null,
+            "distance": 13,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Milk$2.25Dollar General & more30-day returns4.1(359)",
+            "priceValue": 2.25,
+            "distanceText": "13 mi"
+          },
+          {
+            "name": "Horizon Organic Reduced Fat Milk",
+            "price": "$6.79",
+            "store": null,
+            "distance": 29,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Milk$6.79CVS Pharmacy & more60-day returns4.5(457)",
+            "priceValue": 6.79,
+            "distanceText": "29 mi"
+          }
+        ],
+        "totalStores": 12,
+        "totalProducts": 40
+      }
+    },
+    {
+      "product": "milk",
+      "store": "Harris Teeter",
+      "timestamp": "2025-04-16T02:51:46.734Z",
+      "result": {
+        "success": true,
+        "stores": [
+          {
+            "name": "Harris Teeter",
+            "distance": 2,
+            "items": [
+              {
+                "name": "Apple Product",
+                "price": "$1.50",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Shamrock Farms Chocolate Milk",
+                "price": "$1.79",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Shamrock Farms Whole Milk",
+                "price": "$2.99",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Apple Product",
+                "price": "$2.99",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Simple Truth Organic Whole Milk",
+                "price": "$4.29",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Lactaid 1% Calcium Fortified Milk",
+                "price": "$4.69",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Organic Valley Grassmilk Half & Half",
+                "price": "$4.79",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "a2 Milk Milk Whole",
+                "price": "$4.99",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Apple Product",
+                "price": "$4.99",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "A2 Milk 2% Reduced Fat",
+                "price": "$4.99",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Darigold Fit Lactose Free Ultra-Filtered Whole Milk",
+                "price": "$4.99",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Darigold Lactose Free Milk 2% Reduced Fat",
+                "price": "$4.99",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Organic Valley Half & Half Pasteurized Milk",
+                "price": "$4.99",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Fairlife Lactose Free Ultra-Filtered Whole Milk",
+                "price": "$5.49",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Apple Product",
+                "price": "$5.99",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Horizon Organic Whole Milk",
+                "price": "$5.99",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "A2 Milk Grass Fed Whole Milk",
+                "price": "$6.49",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Lactaid Lactose Free Whole Milk",
+                "price": "$6.69",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Organic Valley Family First Whole Milk Carton with DHA Omega 3",
+                "price": "$6.99",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Simple Truth Organic Whole Milk with Vitamin D",
+                "price": "$6.99",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Organic Valley Grassmilk Whole Milk",
+                "price": "$7.19",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Horizon Organic Chocolate Milk",
+                "price": "$9.49",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          },
+          {
+            "name": "Other",
+            "distance": 2,
+            "items": [
+              {
+                "name": "Harris Teeter Cultured Buttermilk Low Fat 16 oz",
+                "price": "$1.49",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Shamrock Farms 2% Reduced Fat Milk",
+                "price": "$1.79",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Apple Product",
+                "price": "$3.99",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "LACTAID Low Fat Milk",
+                "price": "$4.69",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Apple Product",
+                "price": "$4.99",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Apple Product",
+                "price": "$4.99",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Fairlife Fat Free Ultra Filtered Milk",
+                "price": "$5.49",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Horizon Organic Fat Free Milk",
+                "price": "$5.99",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Lactaid Lactose Free 2% Reduced Fat Milk",
+                "price": "$6.69",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Lactaid 1% Lowfat Milk Jug",
+                "price": "$6.69",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Simple Truth 2% Reduced Fat Milk",
+                "price": "$6.99",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Organic Valley Grassmilk Organic 2% Reduced Fat Milk",
+                "price": "$7.19",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Horizon Organic Milk 1% Lowfat - 6 Ct",
+                "price": "$8.99",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Simple Truth Organic Low Fat Chocolate Milk",
+                "price": "$11.99",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Horizon Organic Low Fat Milk 12 Pack",
+                "price": "$16.99",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Horizon Organic Low Fat Strawberry Milk",
+                "price": "$16.99",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Organic Valley Family First 2% Reduced Fat DHA Omega 3 Milk Carton",
+                "price": "$6.99",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Horizon Organic Vanilla Low Fat Milk",
+                "price": "$16.99",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          }
+        ],
+        "products": [
+          {
+            "name": "Apple Product",
+            "price": "$1.50",
+            "store": "Harris Teeter",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "discount": "24%",
+            "priceValue": 1.5,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Shamrock Farms Chocolate Milk",
+            "price": "$1.79",
+            "store": "Harris Teeter",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 1.79,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Shamrock Farms Whole Milk",
+            "price": "$2.99",
+            "store": "Harris Teeter",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 2.99,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Apple Product",
+            "price": "$2.99",
+            "store": "Harris Teeter",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "discount": "11%",
+            "priceValue": 2.99,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Simple Truth Organic Whole Milk",
+            "price": "$4.29",
+            "store": "Harris Teeter",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 4.29,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Lactaid 1% Calcium Fortified Milk",
+            "price": "$4.69",
+            "store": "Harris Teeter",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 4.69,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Organic Valley Grassmilk Half & Half",
+            "price": "$4.79",
+            "store": "Harris Teeter",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 4.79,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "a2 Milk Milk Whole",
+            "price": "$4.99",
+            "store": "Harris Teeter",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 4.99,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Apple Product",
+            "price": "$4.99",
+            "store": "Harris Teeter",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "discount": "16%",
+            "priceValue": 4.99,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "A2 Milk 2% Reduced Fat",
+            "price": "$4.99",
+            "store": "Harris Teeter",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 4.99,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Darigold Fit Lactose Free Ultra-Filtered Whole Milk",
+            "price": "$4.99",
+            "store": "Harris Teeter",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 4.99,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Darigold Lactose Free Milk 2% Reduced Fat",
+            "price": "$4.99",
+            "store": "Harris Teeter",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 4.99,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Organic Valley Half & Half Pasteurized Milk",
+            "price": "$4.99",
+            "store": "Harris Teeter",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 4.99,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Fairlife Lactose Free Ultra-Filtered Whole Milk",
+            "price": "$5.49",
+            "store": "Harris Teeter",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 5.49,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Apple Product",
+            "price": "$5.99",
+            "store": "Harris Teeter",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "discount": "11%",
+            "priceValue": 5.99,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Horizon Organic Whole Milk",
+            "price": "$5.99",
+            "store": "Harris Teeter",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 5.99,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "A2 Milk Grass Fed Whole Milk",
+            "price": "$6.49",
+            "store": "Harris Teeter",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 6.49,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Lactaid Lactose Free Whole Milk",
+            "price": "$6.69",
+            "store": "Harris Teeter",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 6.69,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Organic Valley Family First Whole Milk Carton with DHA Omega 3",
+            "price": "$6.99",
+            "store": "Harris Teeter",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 6.99,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Simple Truth Organic Whole Milk with Vitamin D",
+            "price": "$6.99",
+            "store": "Harris Teeter",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 6.99,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Organic Valley Grassmilk Whole Milk",
+            "price": "$7.19",
+            "store": "Harris Teeter",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 7.19,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Horizon Organic Chocolate Milk",
+            "price": "$9.49",
+            "store": "Harris Teeter",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 9.49,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Harris Teeter Cultured Buttermilk Low Fat 16 oz",
+            "price": "$1.49",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "16 oz$1.49Harris Teeter60-day returns",
+            "priceValue": 1.49,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Shamrock Farms 2% Reduced Fat Milk",
+            "price": "$1.79",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Milk$1.79Harris Teeter & more60-day returns3.8(34)",
+            "priceValue": 1.79,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Apple Product",
+            "price": "$3.99",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "discount": "11%",
+            "returnPolicy": "Milk Whole$3.99$4Harris Teeter & more60-day returns4.0(212)",
+            "priceValue": 3.99,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "LACTAID Low Fat Milk",
+            "price": "$4.69",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Milk$4.69Harris Teeter60-day returns4.5(258)",
+            "priceValue": 4.69,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Apple Product",
+            "price": "$4.99",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "discount": "16%",
+            "returnPolicy": "Free Ultra Pasteurized Milk$4.99$6Harris Teeter & more60-day returns4.4(150)",
+            "priceValue": 4.99,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Apple Product",
+            "price": "$4.99",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "discount": "13%",
+            "returnPolicy": "Oat Milk$4.99$6Harris Teeter & more60-day returns4.7(214)",
+            "priceValue": 4.99,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Fairlife Fat Free Ultra Filtered Milk",
+            "price": "$5.49",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Free Ultra Filtered Milk$5.49Harris Teeter & more60-day returns4.6(1.7K)",
+            "priceValue": 5.49,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Horizon Organic Fat Free Milk",
+            "price": "$5.99",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Free Milk$5.99Harris Teeter & more60-day returns4.6(491)",
+            "priceValue": 5.99,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Lactaid Lactose Free 2% Reduced Fat Milk",
+            "price": "$6.69",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Milk$6.69Harris Teeter & more60-day returns4.6(3K)",
+            "priceValue": 6.69,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Lactaid 1% Lowfat Milk Jug",
+            "price": "$6.69",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Milk Jug$6.69Harris Teeter & more60-day returns4.9(354)",
+            "priceValue": 6.69,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Simple Truth 2% Reduced Fat Milk",
+            "price": "$6.99",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Milk$6.99Harris Teeter & more60-day returns",
+            "priceValue": 6.99,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Organic Valley Grassmilk Organic 2% Reduced Fat Milk",
+            "price": "$7.19",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Milk$7.19Harris Teeter & more60-day returns4.6(1.1K)",
+            "priceValue": 7.19,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Horizon Organic Milk 1% Lowfat - 6 Ct",
+            "price": "$8.99",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "- 6 Ct$8.99Harris Teeter & more60-day returns4.5(648)",
+            "priceValue": 8.99,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Simple Truth Organic Low Fat Chocolate Milk",
+            "price": "$11.99",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Chocolate Milk$11.99Harris Teeter60-day returns",
+            "priceValue": 11.99,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Horizon Organic Low Fat Milk 12 Pack",
+            "price": "$16.99",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Milk 12 Pack$16.99Harris Teeter & more60-day returns4.2(312)",
+            "priceValue": 16.99,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Horizon Organic Low Fat Strawberry Milk",
+            "price": "$16.99",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Strawberry Milk$16.99Harris Teeter & more60-day returns3.9(79)",
+            "priceValue": 16.99,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Organic Valley Family First 2% Reduced Fat DHA Omega 3 Milk Carton",
+            "price": "$6.99",
+            "store": null,
+            "distance": 5,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "DHA Omega 3 Milk Carton$6.99Harris Teeter & more60-day returns4.5(499)",
+            "priceValue": 6.99,
+            "distanceText": "5 mi"
+          },
+          {
+            "name": "Horizon Organic Vanilla Low Fat Milk",
+            "price": "$16.99",
+            "store": null,
+            "distance": 25,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Milk$16.99Harris Teeter & more60-day returns4.6(269)",
+            "priceValue": 16.99,
+            "distanceText": "25 mi"
+          }
+        ],
+        "totalStores": 2,
+        "totalProducts": 40
+      }
+    },
+    {
+      "product": "milk",
+      "store": "Walmart",
+      "timestamp": "2025-04-16T02:51:47.156Z",
+      "result": {
+        "success": true,
+        "stores": [
+          {
+            "name": "Walmart",
+            "distance": 2,
+            "items": [
+              {
+                "name": "Bettergoods Organic Whole Milk 8 fl oz 12 Count",
+                "price": "$11.46",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "TruMoo Minecraft Green Vanilla Milk",
+                "price": "$3.36",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          },
+          {
+            "name": "Walmart - Seller",
+            "distance": null,
+            "items": [
+              {
+                "name": "Nestle Carnation Milk",
+                "price": "$19.29",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          },
+          {
+            "name": "Other",
+            "distance": 2,
+            "items": [
+              {
+                "name": "Galleria Market Great Value Milk",
+                "price": "$1.43",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Galleria Market Great Value Milk",
+                "price": "$1.43",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Great Value 1% Low Fat Milk",
+                "price": "$1.43",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Galleria Market Great Value Milk",
+                "price": "$1.43",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Great Value 1% Low Fat Milk",
+                "price": "$1.43",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Great Value Whole Milk with Vitamin D",
+                "price": "$2.37",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Royal Liquor Great Value 2% Milk 1 gal",
+                "price": "$2.37",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Great Value Whole Milk with Vitamin D",
+                "price": "$2.37",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Royal Liquor Great Value 2% Milk 1 gal",
+                "price": "$2.37",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Great Value Whole Milk with Vitamin D",
+                "price": "$2.37",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Royal Liquor Great Value 2% Milk 1 gal",
+                "price": "$2.37",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Great Value Fat-Free Milk Gallon Plastic Jug",
+                "price": "$2.37",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "LALA Lactose Free Reduced Fat Milk",
+                "price": "$3.26",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Great Value Instant Nonfat Dry Milk",
+                "price": "$3.43",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Great Value Organic Skim Fat Free Milk",
+                "price": "$4.12",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Horizon Organic Low Fat Milk",
+                "price": "$5.47",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "LALA Low Fat Strawberry Milk",
+                "price": "$6.82",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Great Value Organic Reduced Fat 2% Milk",
+                "price": "$7.17",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Horizon Organic 2% Reduced Fat High Vitamin D Milk",
+                "price": "$8.97",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Great Value Chocolate Milk",
+                "price": "$2.37",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "PET 2% Reduced Fat Milk",
+                "price": "$4.36",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Great Value Organic Reduced Fat Milk",
+                "price": "$4.72",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Horizon Organic Fat Free Milk",
+                "price": "$5.47",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Great Value Organic Whole Milk 1 Gallon",
+                "price": "$7.17",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Great Value Organic Lowfat Milk",
+                "price": "$7.17",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Great Value Instant Dry Whole Milk",
+                "price": "$12.44",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Nesquik Zero Sugar Added Low Fat Chocolate Milk RTD Bottle",
+                "price": "$1.48",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Great Value Organic Low Fat Milk",
+                "price": "$4.12",
+                "method": "standard-.MUWJ8c"
+              },
+              {
+                "name": "Broward Meat and Fish Company Grace Evaporated Filled Milk",
+                "price": "$2.48",
+                "method": "standard-.MUWJ8c"
+              }
+            ]
+          }
+        ],
+        "products": [
+          {
+            "name": "Bettergoods Organic Whole Milk 8 fl oz 12 Count",
+            "price": "$11.46",
+            "store": "Walmart",
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 11.46,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "TruMoo Minecraft Green Vanilla Milk",
+            "price": "$3.36",
+            "store": "Walmart",
+            "distance": 5,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 3.36,
+            "distanceText": "5 mi"
+          },
+          {
+            "name": "Nestle Carnation Milk",
+            "price": "$19.29",
+            "store": "Walmart - Seller",
+            "distance": null,
+            "method": "standard-.MUWJ8c",
+            "priceValue": 19.29
+          },
+          {
+            "name": "Galleria Market Great Value Milk",
+            "price": "$1.43",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Value Milk$1.43Walmart & moreGet it tomorrow ($17)Free 90-day returns2.3(1.8K)",
+            "priceValue": 1.43,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Galleria Market Great Value Milk",
+            "price": "$1.43",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Value Milk$1.43Walmart & moreGet it tomorrow ($17)Free 90-day returns2.3(1.8K)",
+            "priceValue": 1.43,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Great Value 1% Low Fat Milk",
+            "price": "$1.43",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Value 1% Low Fat Milk$1.43Walmart & moreGet it tomorrow ($17)Free 90-day returns2.8(2.1K)",
+            "priceValue": 1.43,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Galleria Market Great Value Milk",
+            "price": "$1.43",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Value Milk$1.43Walmart & moreGet it tomorrow ($17)Free 90-day returns2.3(1.8K)",
+            "priceValue": 1.43,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Great Value 1% Low Fat Milk",
+            "price": "$1.43",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Value 1% Low Fat Milk$1.43Walmart & moreGet it tomorrow ($17)Free 90-day returns2.8(2.1K)",
+            "priceValue": 1.43,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Great Value Whole Milk with Vitamin D",
+            "price": "$2.37",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Value Whole Milk with Vitamin D$2.37Walmart & moreGet it tomorrow ($17)Free 90-day returns2.5(7.1K)",
+            "priceValue": 2.37,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Royal Liquor Great Value 2% Milk 1 gal",
+            "price": "$2.37",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Value 2% Milk 1 gal$2.37Walmart & moreGet it tomorrow ($17)Free 90-day returns2.8(4.7K)",
+            "priceValue": 2.37,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Great Value Whole Milk with Vitamin D",
+            "price": "$2.37",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Value Whole Milk with Vitamin D$2.37Walmart & moreGet it tomorrow ($17)Free 90-day returns2.5(7.1K)",
+            "priceValue": 2.37,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Royal Liquor Great Value 2% Milk 1 gal",
+            "price": "$2.37",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Value 2% Milk 1 gal$2.37Walmart & moreGet it tomorrow ($17)Free 90-day returns2.8(4.7K)",
+            "priceValue": 2.37,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Great Value Whole Milk with Vitamin D",
+            "price": "$2.37",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Value Whole Milk with Vitamin D$2.37Walmart & moreGet it tomorrow ($17)Free 90-day returns2.5(7.1K)",
+            "priceValue": 2.37,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Royal Liquor Great Value 2% Milk 1 gal",
+            "price": "$2.37",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Value 2% Milk 1 gal$2.37Walmart & moreGet it tomorrow ($17)Free 90-day returns2.8(4.7K)",
+            "priceValue": 2.37,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Great Value Fat-Free Milk Gallon Plastic Jug",
+            "price": "$2.37",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Value Fat-Free Milk Gallon Plastic Jug$2.37WalmartGet it tomorrow ($17)Free 90-day returns2.5(950)",
+            "priceValue": 2.37,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "LALA Lactose Free Reduced Fat Milk",
+            "price": "$3.26",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Milk$3.26Walmart & moreFree 90-day returns3.3(19)",
+            "priceValue": 3.26,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Great Value Instant Nonfat Dry Milk",
+            "price": "$3.43",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Value Instant Nonfat Dry Milk$3.43Walmart & moreFree 90-day returns4.5(1.5K)",
+            "priceValue": 3.43,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Great Value Organic Skim Fat Free Milk",
+            "price": "$4.12",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Value Organic Skim Fat Free Milk$4.12WalmartFree 90-day returns3.7(77)",
+            "priceValue": 4.12,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Horizon Organic Low Fat Milk",
+            "price": "$5.47",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Milk$5.47Walmart & moreGet it tomorrow ($17)Free 90-day returns4.5(152)",
+            "priceValue": 5.47,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "LALA Low Fat Strawberry Milk",
+            "price": "$6.82",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Strawberry Milk$6.82Walmart & moreGet it tomorrow ($17)Free 90-day returns3.4(30)",
+            "priceValue": 6.82,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Great Value Organic Reduced Fat 2% Milk",
+            "price": "$7.17",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Value Organic Reduced Fat 2% Milk$7.17Walmart & moreFree 90-day returns3.5(475)",
+            "priceValue": 7.17,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Horizon Organic 2% Reduced Fat High Vitamin D Milk",
+            "price": "$8.97",
+            "store": null,
+            "distance": 2,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "High Vitamin D Milk$8.97Walmart & moreGet it tomorrow ($17)Free 90-day returns4.5(396)",
+            "priceValue": 8.97,
+            "distanceText": "2 mi"
+          },
+          {
+            "name": "Great Value Chocolate Milk",
+            "price": "$2.37",
+            "store": null,
+            "distance": 3,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Value Chocolate Milk$2.37Walmart & moreGet it tomorrow ($17)Free 90-day returns3.1(2K)",
+            "priceValue": 2.37,
+            "distanceText": "3 mi"
+          },
+          {
+            "name": "PET 2% Reduced Fat Milk",
+            "price": "$4.36",
+            "store": null,
+            "distance": 3,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Milk$4.36Walmart & moreGet it tomorrow ($17)Free 90-day returns2.2(48)",
+            "priceValue": 4.36,
+            "distanceText": "3 mi"
+          },
+          {
+            "name": "Great Value Organic Reduced Fat Milk",
+            "price": "$4.72",
+            "store": null,
+            "distance": 3,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Value Organic Reduced Fat Milk$4.72WalmartGet it tomorrow ($17)Free 90-day returns",
+            "priceValue": 4.72,
+            "distanceText": "3 mi"
+          },
+          {
+            "name": "Horizon Organic Fat Free Milk",
+            "price": "$5.47",
+            "store": null,
+            "distance": 3,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Free Milk$5.47Walmart & moreGet it tomorrow ($17)Free 90-day returns4.6(491)",
+            "priceValue": 5.47,
+            "distanceText": "3 mi"
+          },
+          {
+            "name": "Great Value Organic Whole Milk 1 Gallon",
+            "price": "$7.17",
+            "store": null,
+            "distance": 3,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Value Organic Whole Milk 1 Gallon$7.17Walmart & moreGet it tomorrow ($17)Free 90-day returns2.9(386)",
+            "priceValue": 7.17,
+            "distanceText": "3 mi"
+          },
+          {
+            "name": "Great Value Organic Lowfat Milk",
+            "price": "$7.17",
+            "store": null,
+            "distance": 5,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Value Organic Lowfat Milk$7.17WalmartGet it tomorrow ($17)Free 90-day returns3.5(48)",
+            "priceValue": 7.17,
+            "distanceText": "5 mi"
+          },
+          {
+            "name": "Great Value Instant Dry Whole Milk",
+            "price": "$12.44",
+            "store": null,
+            "distance": 5,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Value Instant Dry Whole Milk$12.44Walmart & moreGet it tomorrow ($17)Free 90-day returns3.4(57)",
+            "priceValue": 12.44,
+            "distanceText": "5 mi"
+          },
+          {
+            "name": "Nesquik Zero Sugar Added Low Fat Chocolate Milk RTD Bottle",
+            "price": "$1.48",
+            "store": null,
+            "distance": 10,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Chocolate Milk RTD Bottle$1.48WalmartFree 90-day returns",
+            "priceValue": 1.48,
+            "distanceText": "10 mi"
+          },
+          {
+            "name": "Great Value Organic Low Fat Milk",
+            "price": "$4.12",
+            "store": null,
+            "distance": 16,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "Value Organic Low Fat Milk$4.12WalmartFree 90-day returns2.0(42)",
+            "priceValue": 4.12,
+            "distanceText": "16 mi"
+          },
+          {
+            "name": "Broward Meat and Fish Company Grace Evaporated Filled Milk",
+            "price": "$2.48",
+            "store": null,
+            "distance": 31,
+            "method": "standard-.MUWJ8c",
+            "returnPolicy": "and Fish Company Grace Evaporated Filled Milk$2.48Walmart & moreFree 90-day returns",
+            "priceValue": 2.48,
+            "distanceText": "31 mi"
+          }
+        ],
+        "totalStores": 3,
+        "totalProducts": 32
+      }
+    }
+  ]
+}

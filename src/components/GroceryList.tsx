@@ -15,21 +15,21 @@ import AddIcon from "@mui/icons-material/Add";
 import type { GroceryItem } from "../App";
 
 interface GroceryListProps {
-  items: GroceryItem[];
+  items: Array<{ id: string; name: string }>;
+  onRemoveItem: (id: string) => void;
   onAddItem: (name: string) => void;
-  onDeleteItem: (id: number) => void;
 }
 
 const GroceryList: React.FC<GroceryListProps> = ({
   items,
   onAddItem,
-  onDeleteItem,
+  onRemoveItem,
 }) => {
   const [newItem, setNewItem] = useState("");
 
   const handleAddItem = () => {
     if (newItem.trim()) {
-      onAddItem(newItem);
+      onAddItem(newItem.trim());
       setNewItem("");
     }
   };
@@ -85,7 +85,7 @@ const GroceryList: React.FC<GroceryListProps> = ({
                   <IconButton
                     edge="end"
                     aria-label="delete"
-                    onClick={() => onDeleteItem(item.id)}
+                    onClick={() => onRemoveItem(item.id)}
                     sx={{ color: "error.light" }}
                   >
                     <DeleteIcon />

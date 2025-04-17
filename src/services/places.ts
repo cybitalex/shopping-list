@@ -29,78 +29,35 @@ export async function findNearbyStores(
   longitude: number
 ): Promise<Store[]> {
   try {
-    console.log(`Finding nearby stores at coordinates: ${latitude}, ${longitude}`);
-    
-    if (!latitude || !longitude) {
-      console.error("Invalid coordinates provided to findNearbyStores");
-      throw new Error("Invalid coordinates provided");
-    }
-    
-    // First, try using the backend API to get stores (this should return more stores)
-    try {
-      console.log("Calling backend API to get stores");
-      const backendResponse = await fetch(`/api/stores?latitude=${latitude}&longitude=${longitude}`);
+    // First try the backend API
+    const response = await fetch(
+      `/api/stores?latitude=${latitude}&longitude=${longitude}`
+    );
       
-      if (backendResponse.ok) {
-        const backendStores = await backendResponse.json();
-        console.log(`Got ${backendStores.length} stores from backend API`);
-        
-        // If we got at least some stores, use those
-        if (Array.isArray(backendStores) && backendStores.length > 0) {
-          // Clone and sort by distance
-          const sortedStores = [...backendStores].sort((a, b) => a.distance - b.distance);
-          return sortedStores;
-        }
-      } else {
-        console.error("Backend API request failed:", backendResponse.status);
+    if (response.ok) {
+      const data = await response.json();
+      if (data.stores && data.stores.length > 0) {
+        console.log(`Found ${data.stores.length} stores from backend API`);
+        return data.stores;
       }
-    } catch (err) {
-      console.error("Error using backend API:", err);
-      // Fall back to Google Places API if backend fails
     }
+    
+    console.log("Falling back to direct Google Places API call");
     
     // Fallback to Google Places API
-    console.log("Falling back to direct Google Places API call");
-    const results = await searchNearbyStores(
-      "", // empty query to get all grocery stores
-      { lat: latitude, lng: longitude },
-      5000  // Increase radius to find more stores (5km)
-    );
+    const stores = await searchNearbyStores("grocery store", { lat: latitude, lng: longitude });
+    console.log(`Found ${stores.length} stores from Google Places API`);
     
-    console.log(`Found ${results.length} stores from Google Places API`);
-    
-    const stores = results
-      .filter((place): place is google.maps.places.PlaceResult & {
-        geometry: { location: google.maps.LatLng }
-      } => Boolean(place.geometry?.location))
-      .map((place): Store => ({
-        id: place.place_id || "",
-        name: place.name || "Unknown Store",
-        address: place.vicinity || "",
-        latitude: place.geometry.location.lat(),
-        longitude: place.geometry.location.lng(),
-        rating: place.rating || 0,
-        priceLevel: place.price_level || 0,
-        distance: calculateDistance(
-          latitude,
-          longitude,
-          place.geometry.location.lat(),
-          place.geometry.location.lng()
-        )
+    // Initialize items array for each store
+    const processedStores = stores.map(store => ({
+      ...store,
+      items: [] // Initialize empty items array
       }));
       
-    console.log(`Processed ${stores.length} valid stores`);
-    
-    // Sort by distance
-    const sortedStores = stores.sort((a, b) => a.distance - b.distance);
-    
-    return sortedStores;
+    console.log(`Processed ${processedStores.length} valid stores`);
+    return processedStores;
   } catch (error) {
-    console.error("Error finding stores:", error);
-    if (error instanceof Error) {
-      console.error("Error details:", error.message);
-      if (error.stack) console.error(error.stack);
-    }
+    console.error("Error finding nearby stores:", error);
     return [];
   }
 }
