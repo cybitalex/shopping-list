@@ -14,24 +14,15 @@ scrapeGoogleShopping(item, locationHint)
       return;
     }
     
-    // Print a summary of the results
-    console.log(`Found ${result.totalProducts} products from ${result.totalStores} stores.`);
-    
     // Format and display the results by store
-    console.log('\n--- Products by Store ---');
-    Object.keys(result.stores).forEach(storeIndex => {
-      const store = result.stores[storeIndex];
+    result.stores.forEach(store => {
       console.log(`\n${store.name}${store.distance ? ` (${store.distance} mi away)` : ''}`);
       console.log('-'.repeat(40));
       
       store.items.forEach(item => {
-        console.log(`${item.name} - ${item.price}${item.method.includes('fallback') ? ' *' : ''}`);
+        console.log(`${item.name} - ${item.price}`);
       });
     });
-    
-    // Output the complete result object as JSON if needed for debugging or integration
-    console.log('\nFull JSON result:');
-    console.log(JSON.stringify(result, null, 2));
   })
   .catch(err => {
     console.error('Error running scraper:', err);

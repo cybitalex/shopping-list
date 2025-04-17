@@ -1,5 +1,3 @@
-import { scrapeGoogleShopping } from '../../scraper.js';
-
 interface ScraperResult {
   success: boolean;
   stores: Array<{
@@ -31,6 +29,7 @@ export class ScraperApi {
   private static instance: ScraperApi;
   private cache: Map<string, { result: ScraperResult | ScraperError; timestamp: number }>;
   private CACHE_EXPIRATION = 15 * 60 * 1000; // 15 minutes
+  private API_BASE_URL = 'http://localhost:3000/api'; // Update this based on your backend URL
 
   private constructor() {
     this.cache = new Map();
@@ -45,8 +44,8 @@ export class ScraperApi {
     return ScraperApi.instance;
   }
 
-  private getCacheKey(item: string, store: string | null): string {
-    return `${item.toLowerCase()}_${(store || 'nearby').toLowerCase()}`;
+  private getCacheKey(item: string, location: string | null): string {
+    return `${item.toLowerCase()}_${(location || 'nearby').toLowerCase()}`;
   }
 
   private cleanupCache(): void {
@@ -58,8 +57,8 @@ export class ScraperApi {
     }
   }
 
-  public async searchProducts(item: string, store: string | null = null): Promise<ScraperResult | ScraperError> {
-    const cacheKey = this.getCacheKey(item, store);
+  public async searchProducts(item: string, location: string | null = null): Promise<ScraperResult | ScraperError> {
+    const cacheKey = this.getCacheKey(item, location);
     const cached = this.cache.get(cacheKey);
 
     if (cached && Date.now() - cached.timestamp < this.CACHE_EXPIRATION) {
@@ -67,7 +66,22 @@ export class ScraperApi {
     }
 
     try {
-      const result = await scrapeGoogleShopping(item, store || '');
+      const params = new URLSearchParams({
+        item: item,
+        ...(location && { location })
+      });
+      
+      const response = await fetch(`${this.API_BASE_URL}/scrape-prices?${params}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to scrape prices');
+      }
+
+      // Cache and return the result
       this.cache.set(cacheKey, { result, timestamp: Date.now() });
       return result;
     } catch (error) {
@@ -79,7 +93,7 @@ export class ScraperApi {
     }
   }
 
-  public async searchMultipleProducts(items: string[], stores: string[] | null = null): Promise<{
+  public async searchMultipleProducts(items: string[], location: string | null = null): Promise<{
     [key: string]: {
       [key: string]: ScraperResult | ScraperError;
     };
@@ -90,13 +104,11 @@ export class ScraperApi {
       };
     } = {};
 
-    const storeList = stores && stores.length > 0 ? stores : [null];
-
+    // Search for each item using the direct scraper
     for (const item of items) {
-      results[item] = {};
-      for (const store of storeList) {
-        results[item][store || 'nearby'] = await this.searchProducts(item, store);
-      }
+      results[item] = {
+        'nearby': await this.searchProducts(item, location)
+      };
     }
 
     return results;

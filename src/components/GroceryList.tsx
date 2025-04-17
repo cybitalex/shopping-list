@@ -15,9 +15,9 @@ import AddIcon from "@mui/icons-material/Add";
 import type { GroceryItem } from "../App";
 
 interface GroceryListProps {
-  items: GroceryItem[];
+  items: Array<{ id: string; name: string }>;
+  onRemoveItem: (id: string) => void;
   onAddItem: (name: string) => void;
-  onRemoveItem: (id: number) => void;
 }
 
 const GroceryList: React.FC<GroceryListProps> = ({

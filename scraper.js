@@ -1,8 +1,8 @@
-import { chromium } from '@playwright/test';
+import { chromium } from 'playwright';
 import fs from 'fs/promises';
 
 async function scrapeGoogleShopping(item, locationHint = '') {
-  console.log(`Searching for ${item}${locationHint ? ` in ${locationHint}` : ' nearby'} using Playwright`);
+  console.log(`Searching for ${item}${locationHint ? ` in ${locationHint}` : ''} using Playwright`);
   
   try {
     // Initialize browser with basic settings
@@ -45,12 +45,26 @@ async function scrapeGoogleShopping(item, locationHint = '') {
       throw new Error('Search box not found');
     }
     
-    // Build search query
-    let searchQuery = item;
-    if (locationHint) {
-      searchQuery += ` in ${locationHint}`;
+    // Build search query - be careful not to duplicate "nearby" if it's already in locationHint
+    let searchQuery;
+    
+    // Check if the item already contains "price" or "nearby"
+    const hasPrice = item.toLowerCase().includes("price");
+    const hasNearby = item.toLowerCase().includes("nearby") || (locationHint && locationHint.toLowerCase().includes("nearby"));
+    
+    // Build the query intelligently
+    if (hasPrice && hasNearby) {
+      // If it already has both price and nearby, just use as is
+      searchQuery = item;
+    } else if (hasPrice) {
+      // If it has price but no nearby
+      searchQuery = `${item} ${locationHint || "nearby"}`;
+    } else if (hasNearby) {
+      // If it has nearby but no price
+      searchQuery = `${item} price`;
     } else {
-      searchQuery += ' nearby';
+      // If it has neither price nor nearby
+      searchQuery = `${item} price ${locationHint || "nearby"}`;
     }
     
     // Execute search
@@ -65,7 +79,7 @@ async function scrapeGoogleShopping(item, locationHint = '') {
     
     // Wait for results to load
     console.log("Waiting for navigation after search...");
-    await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 })
+    await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 60000 })
       .catch(e => console.log(`Navigation wait timed out: ${e.message}`));
     
     // Print current URL after search
@@ -73,7 +87,7 @@ async function scrapeGoogleShopping(item, locationHint = '') {
     console.log(`Page title: ${await page.title()}`);
     
     // Give extra time for content to load
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(10000);
     
     // Take screenshot for reference
     const screenshotPath = `google-shopping-${item.replace(/\s+/g, '-')}-${locationHint ? locationHint.replace(/\s+/g, '-') : 'nearby'}.png`;
@@ -158,7 +172,8 @@ async function scrapeGoogleShopping(item, locationHint = '') {
           'search', 'results', 'refine', 'sort', 'filter', 'view',
           'all', 'more', 'less', 'price', 'rating', 'map', 'ads',
           'sponsored', 'shopping', 'directions', 'website', 'home',
-          'search results', 'accessibility links', 'menu'
+          'search results', 'accessibility links', 'menu',
+          'about this result', 'about these results'
         ];
         
         const lowerText = text.toLowerCase().trim();
@@ -354,6 +369,134 @@ async function scrapeGoogleShopping(item, locationHint = '') {
         return null;
       }
       
+      function isValidStoreName(name) {
+        if (!name) return false;
+        
+        // Invalid store names
+        const invalidNames = [
+          'report', 'violation', 'other', 'about', 'search',
+          'feedback', 'help', 'support', 'contact', 'menu',
+          'navigation', 'skip', 'main', 'content', 'header',
+          'footer', 'sidebar', 'cart', 'checkout', 'account',
+          'apple', 'gala', 'cosmic', 'crisp', 'fresh', // Common apple varieties that might be mistaken for stores
+          'organic', 'conventional', 'premium', 'select', // Common product descriptors
+          'product', 'item', 'results', 'price', 'sale' // Generic terms
+        ];
+        
+        const lowerName = name.toLowerCase();
+        
+        // Check if it contains any invalid terms
+        if (invalidNames.some(term => lowerName.includes(term))) {
+          return false;
+        }
+        
+        // Check if it's too long to be a store name
+        if (name.length > 50) return false;
+        
+        // Check if it's mostly numbers (like a phone number)
+        if (name.replace(/[^0-9]/g, '').length > name.length / 2) return false;
+        
+        // Must contain at least one letter
+        if (!/[a-zA-Z]/.test(name)) return false;
+        
+        // Known store chains (partial list)
+        const knownStores = [
+          'walmart', 'target', 'kroger', 'publix', 'costco', 
+          'sams', 'whole foods', 'trader', 'food lion', 
+          'harris teeter', 'aldi', 'lidl', 'giant', 'safeway',
+          'wegmans', 'shoprite', 'stop & shop', 'meijer'
+        ];
+        
+        // Bonus points if it matches a known store chain
+        if (knownStores.some(store => lowerName.includes(store))) {
+          return true;
+        }
+        
+        // Additional validation for unknown store names
+        // Must be between 3 and 30 characters
+        if (name.length < 3 || name.length > 30) return false;
+        
+        // Shouldn't contain product-related words
+        const productWords = ['lb', 'oz', 'pack', 'bag', 'box', 'count', 'ct', 'fresh'];
+        if (productWords.some(word => lowerName.includes(word))) return false;
+        
+        return true;
+      }
+
+      function isReasonablePrice(price, itemName) {
+        if (!price) return false;
+        
+        // Extract numeric value
+        const value = parseFloat(price.replace(/[^\d.]/g, ''));
+        if (isNaN(value)) return false;
+        
+        // More specific limits for common items
+        const itemLimits = {
+          'apple': { min: 0.25, max: 10 },
+          'apples': { min: 0.25, max: 10 },
+          'banana': { min: 0.10, max: 8 },
+          'bananas': { min: 0.10, max: 8 },
+          'milk': { min: 1, max: 12 },
+          'bread': { min: 1, max: 15 },
+          'eggs': { min: 1, max: 12 },
+          'meat': { min: 2, max: 30 },
+          'chicken': { min: 2, max: 25 },
+          'fish': { min: 3, max: 40 }
+        };
+        
+        const lowerItem = itemName.toLowerCase();
+        const limits = itemLimits[lowerItem];
+        
+        if (limits) {
+          return value >= limits.min && value <= limits.max;
+        }
+        
+        // General price limits for other grocery items
+        const MIN_PRICE = 0.10;  // 10 cents minimum
+        const MAX_PRICE = 50;   // $50 maximum for most grocery items
+        
+        return value >= MIN_PRICE && value <= MAX_PRICE;
+      }
+      
+      // Add this function before the product processing
+      function normalizeStoreName(name) {
+        if (!name) return null;
+        
+        // Common store name variations to normalize
+        const storeVariations = {
+          'walmart': ['walmart supercenter', 'walmart neighborhood market', 'walmart grocery'],
+          'target': ['target store', 'super target'],
+          'kroger': ['kroger marketplace', 'kroger grocery'],
+          'publix': ['publix super market', 'publix grocery'],
+          'costco': ['costco wholesale', 'costco warehouse'],
+          'sams': ["sam's club", "sams club"],
+          'wholefds': ['whole foods', 'whole foods market'],
+          'traderjoes': ["trader joe's", "trader joes"],
+          'foodlion': ['food lion'],
+          'harristeeter': ['harris teeter'],
+          'aldi': ['aldi market', 'aldi grocery'],
+          'dollargeneral': ['dollar general'],
+          'familydollar': ['family dollar']
+        };
+        
+        const normalizedName = name.toLowerCase().trim();
+        
+        // Check each store variation
+        for (const [baseStore, variations] of Object.entries(storeVariations)) {
+          if (variations.some(v => normalizedName.includes(v))) {
+            // Capitalize first letter of each word in original name
+            return name.split(' ')
+              .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+              .join(' ');
+          }
+        }
+        
+        // If no match found, just capitalize first letter of each word
+        return name.split(' ')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+          .join(' ');
+      }
+      
       // Product card selectors
       const productSelectors = [
         '.sh-dgr__grid-result', // Grid view results
@@ -545,26 +688,55 @@ async function scrapeGoogleShopping(item, locationHint = '') {
       
       console.log(`Final result count: ${results.length}`);
       
-      // Process the products before returning them
+      // Process the products before returning
       results.forEach(product => {
+        // Skip invalid store names
+        if (!isValidStoreName(product.store)) {
+          product.store = null;
+        }
+        
+        // Normalize store name
+        if (product.store) {
+          product.store = normalizeStoreName(product.store);
+        }
+        
+        // Skip if normalization failed
+        if (!product.store) {
+          product.shouldRemove = true;
+          return;
+        }
+        
+        // Skip unreasonable prices
+        if (!isReasonablePrice(product.price, searchedItem)) {
+          product.shouldRemove = true;
+          return;
+        }
+        
         // Fix product names
-        if (product.name && (product.name.includes("Nearby,") || product.name.includes("Also nearby"))) {
-          // Try to find the actual product name from the container's text
-          const containerText = product.store || "";
-          if (containerText && containerText.length > 3 && 
-              !containerText.includes("returns") && 
-              !containerText.includes("Get it by") && 
-              !containerText.includes("delivery")) {
-            product.name = containerText;
-          } else {
-            product.name = "Apple Product";
-          }
+        if (product.name && (
+          product.name.includes("Nearby,") || 
+          product.name.includes("Also nearby") ||
+          product.name.toLowerCase().includes("about this result") ||
+          product.name.toLowerCase().includes("about these results")
+        )) {
+          // This data is not useful and doesn't appear on Google Shopping results
+          product.shouldRemove = true;
+          return;
+        }
+        
+        // Check if the name is too generic (just the search term or a slight variation)
+        if (product.name.toLowerCase().trim() === searchedItem.toLowerCase().trim() ||
+            product.name.toLowerCase().trim() === searchedItem.toLowerCase().trim() + 's') {
+          // Mark generic names for better UI display
+          product.isGenericName = true;
         }
 
         // Remove discount percentages that are included in the name
         if (product.name && /^\d+%\s*OFF/.test(product.name)) {
+          // Keep the discount info but mark for removal if we can't get the right product name
           product.discount = product.name.match(/^\d+%/)[0];
-          product.name = "Apple Product";
+          product.shouldRemove = true;
+          return;
         }
         
         // Fix store names
@@ -572,21 +744,24 @@ async function scrapeGoogleShopping(item, locationHint = '') {
           // Clean up store names with patterns like "2.3(152)" which are likely rating information
           if (/^\d+\.\d+\(\d+.*\)$/.test(product.store)) {
             product.rating = product.store;
-            product.store = "Target"; // Target is a common retailer with rating display
+            product.store = null;
+            product.shouldRemove = true;
+            return;
           }
           
           // Clean up store names with delivery dates
           if (/^Apr \d+/.test(product.store)) {
             product.deliveryInfo = product.store;
-            product.store = "Online Retailer";
+            product.store = null;
+            product.shouldRemove = true;
+            return;
           }
           
           // Check if store name is also a product name, which indicates likely incorrect extraction
           if (product.store === product.name) {
-            // This is likely incorrect - use a generic store name if we have a distance
-            if (product.distance !== null) {
-              product.store = "Local Grocery";
-            }
+            // This is likely incorrect - mark for removal
+            product.shouldRemove = true;
+            return;
           }
           
           // Handle return policy info in store name
@@ -595,6 +770,8 @@ async function scrapeGoogleShopping(item, locationHint = '') {
               product.store.includes("delivery")) {
             product.returnPolicy = product.store;
             product.store = null;
+            product.shouldRemove = true;
+            return;
           }
         }
         
@@ -610,7 +787,12 @@ async function scrapeGoogleShopping(item, locationHint = '') {
             product.priceValue = parseFloat(product.price.replace(/[^\d.]/g, ''));
           } catch (e) {
             product.priceValue = 0;
+            product.shouldRemove = true;
+            return;
           }
+        } else {
+          product.shouldRemove = true;
+          return;
         }
         
         // Add formatted distance
@@ -619,10 +801,14 @@ async function scrapeGoogleShopping(item, locationHint = '') {
         }
       });
       
-      return results;
+      // Filter out products that should be removed
+      const filteredResults = results.filter(product => !product.shouldRemove);
+      console.log(`Filtered ${results.length - filteredResults.length} invalid products`);
+      
+      return filteredResults;
     }, { searchedItem: item, storeFilter: locationHint ? locationHint.toLowerCase() : null });
     
-    console.log(`Found ${products.length} products`);
+    console.log(`Found ${products.length} products after filtering`);
     
     // Sort products by store and distance before grouping
     products.sort((a, b) => {
@@ -649,16 +835,14 @@ async function scrapeGoogleShopping(item, locationHint = '') {
       
       return priceA - priceB;
     });
-    
+
     // Group by store
     const productsByStore = {};
     products.forEach(product => {
-      // Skip products with obviously wrong data
-      if (!product.name || !product.price) return;
+      // Skip products with missing required data
+      if (!product.name || !product.price || !product.store) return;
       
-      // Use store name or "Other" as group key
-      const storeKey = product.store || "Other";
-      
+      const storeKey = product.store;
       if (!productsByStore[storeKey]) {
         productsByStore[storeKey] = [];
       }
@@ -684,7 +868,9 @@ async function scrapeGoogleShopping(item, locationHint = '') {
         items: productsByStore[storeName].map(product => ({
           name: product.name,
           price: product.price,
-          method: product.method
+          method: product.method,
+          isGenericName: product.isGenericName || false,
+          productDetail: product.productDetail || null
         }))
       })),
       products: products,

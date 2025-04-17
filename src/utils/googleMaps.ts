@@ -126,7 +126,7 @@ interface SearchNearbyRequest {
 export const searchNearbyStores = async (
   query: string,
   location: { lat: number; lng: number },
-  radius: number = 2000,
+  radius: number = 32186.9, // 20 miles in meters
   maxStores: number = 20
 ): Promise<any[]> => {
   if (!mapInstance) {
@@ -186,7 +186,7 @@ export const searchNearbyStores = async (
 const searchNearbyStoresLegacy = async (
   query: string,
   location: { lat: number; lng: number },
-  radius: number = 2000,
+  radius: number = 32186.9, // 20 miles in meters
   maxStores: number = 20
 ): Promise<any[]> => {
   console.warn('Using deprecated PlacesService - please update code to use new Place API');

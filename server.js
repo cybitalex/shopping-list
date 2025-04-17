@@ -6,7 +6,7 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import OpenAI from "openai";
 import * as cheerio from "cheerio";
-import { chromium } from '@playwright/test';
+import { chromium } from 'playwright';
 import { scrapeGoogleShopping } from './scraper.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -19,9 +19,13 @@ app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
     ? ['https://shopcheeply.duckdns.org']
     : ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173', 'http://127.0.0.1:3000'],
-  methods: ['GET', 'POST', 'OPTIONS'],
+  credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+  methods: ['GET', 'POST', 'OPTIONS'],
+  exposedHeaders: ['Content-Length', 'X-Foo', 'X-Bar'],
+  maxAge: 86400, // 24 hours
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 }));
 
 // Add security headers
@@ -328,324 +332,218 @@ function findStoreType(storeName) {
   return "default";
 }
 
-// Endpoint to find nearby stores
-app.get("/api/stores", async (req, res) => {
+// Add this list of store types to filter out
+const EXCLUDED_STORE_TYPES = ['gas_station', 'convenience_store', 'car_dealer', 'car_repair', 'car_wash'];
+
+app.get('/api/stores', async (req, res) => {
   try {
-    const { latitude, longitude } = req.query;
-    if (!latitude || !longitude) {
-      return res.status(400).json({ error: "Missing latitude or longitude" });
-    }
-
-    console.log("Searching for stores at:", { latitude, longitude });
-    const RADIUS_MILES = 40;
-    const RADIUS_METERS = Math.round(RADIUS_MILES * 1609.34);
-
-    console.log(
-      `Searching within ${RADIUS_MILES} miles (${RADIUS_METERS} meters)`
-    );
-
-    // Define store chains to search for - explicitly grocery focused
-    const storeChains = [
-      "Walmart",
-      "Target",
-      "Kroger",
-      "Publix",
-      "Whole Foods",
-      "Trader Joe's",
-      "Aldi",
-      "Food Lion",
-      "Harris Teeter",
-      "Safeway",
-      "Giant",
-      "Stop & Shop",
-      "Costco",
-      "Sam's Club",
-      "Wegmans",
-      "Dollar General",
-      "Family Dollar",
-      "Dollar Tree",
-      "Save A Lot",
-      "Piggly Wiggly",
-      "Ingles",
-      "Winn-Dixie", 
-      "Lidl",
-      "IGA",
-      "Grocery Outlet",
-      "Lowe's Foods",
-      "Fresh Market",
-      "Sprouts",
-      "BJ's Wholesale Club",
-      "H-E-B",
-      "Meijer",
-      "Albertsons",
-      "Vons",
-      "Ralphs",
-      "Fry's",
-      "Jewel-Osco",
-      "Acme",
-      "Market Basket",
-      "Hannaford",
-      "ShopRite",
-      "Price Chopper"
-    ];
-
-    // Definitive grocery store keywords for extra validation
-    const groceryKeywords = [
-      "grocery", "supermarket", "market", "food", "fresh", "farm", 
-      "produce", "pantry", "foods", "super", "hypermarket", "mart", 
-      "shop", "store", "warehouse", "outlet", "supply", "farmers",
-      "organic", "natural", "dollar", "discount", "general", "family"
-    ];
-
-    // Keywords to filter out non-grocery stores - be very strict with this
-    const nonGroceryKeywords = [
-      // Beauty & Personal Care - Strengthen filtering here
-      "salon", "hair", "beauty", "barber", "stylist", "spa", "nails", 
-      "locs", "braids", "weaves", "extensions", "cosmetics", "makeup",
-      "tattoo", "piercing", "lashes", "brow", "facial", "botox", "skin",
-      "luscious", "locks", "natural", "haircut", "beautician", "cosmetology",
-      "hair studio", "beauty shop", "hair design", "tresses", "mane",
-      
-      // Health & Medical
-      "clinic", "medical", "doctor", "dentist", "dental", "health", "pharmacy",
-      "hospital", "urgent", "care", "therapy", "rehab", "wellness", "optical",
-      "vision", "chiropractic", "massage", "physical", "physician",
-      
-      // Services
-      "repair", "service", "insurance", "financial", "bank", "loans", "cash",
-      "attorney", "lawyer", "legal", "accounting", "tax", "notary", "consulting",
-      
-      // Retail (non-grocery)
-      "clothing", "apparel", "fashion", "shoes", "boutique", "jewelry", 
-      "accessories", "electronics", "phone", "computer", "hardware", "toy",
-      "game", "book", "music", "instrument", "sporting", "liquor", "beer", "wine",
-      "tobacco", "smoke", "vape", "pet", "garden", "home", "furniture", "decor",
-      
-      // Education & Recreation
-      "school", "academy", "training", "education", "university", "college",
-      "gym", "fitness", "yoga", "dance", "arts", "crafts", "hobby",
-      
-      // Food Service (not grocery)
-      "restaurant", "cafe", "bakery", "coffee", "bar", "grill", "bbq", "diner",
-      "bistro", "pizzeria", "taco", "burger", "sandwich", "sushi", "chinese",
-      "mexican", "italian", "asian", "thai", "indian", "seafood", "steakhouse",
-      
-      // Lodging
-      "motel", "hotel", "inn", "suites", "lodge", "resort", "vacation", "rental",
-      
-      // Real Estate
-      "apartment", "realty", "properties", "estate", "homes", "rental", "leasing",
-      
-      // Entertainment
-      "theater", "cinema", "movie", "entertainment", "club", "lounge", "bar",
-      
-      // Auto & Transportation
-      "auto", "car", "vehicle", "tire", "parts", "dealership", "gas", "station",
-      "automotive", "motor", "transmission", "oil", "change", "body", "collision",
-      
-      // Religious & Community
-      "church", "chapel", "temple", "mosque", "synagogue", "worship", "ministry",
-      "community", "center", "association"
-    ];
-
-    let allStores = [];
-    const seenPlaceIds = new Set();
-
-    // Search for each store chain
-    for (const chain of storeChains) {
-      try {
-        console.log(`Searching for ${chain}...`);
-        const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(
-          chain
-        )}&location=${latitude},${longitude}&radius=${RADIUS_METERS}&key=${GOOGLE_MAPS_API_KEY}`;
-
-        console.log(
-          "Making request to:",
-          url.replace(GOOGLE_MAPS_API_KEY, "REDACTED")
-        );
-
-        const response = await axios.get(url);
-
-        console.log("Google API Response Status:", response.data.status);
-
-        if (response.data.status === "ZERO_RESULTS") {
-          console.log(`No ${chain} locations found in the area`);
-          continue;
-        }
-
-        if (
-          response.data.status === "OK" &&
-          response.data && response.data.results && response.data.results.length > 0
-        ) {
-          console.log(
-            `Found ${response.data.results.length} ${chain} locations`
-          );
-          for (const place of response.data.results) {
-            if (!seenPlaceIds.has(place.place_id)) {
-              // Strict filtering for stores by name
-              const placeName = place.name.toLowerCase();
-              
-              // Check if the name is likely a non-grocery business
-              const isLikelyNonGrocery = nonGroceryKeywords.some(keyword => 
-                placeName.includes(keyword.toLowerCase())
-              );
-              
-              // Skip if it matches any non-grocery keyword
-              if (isLikelyNonGrocery) {
-                console.log(`Filtering out non-grocery store: ${place.name}`);
-                continue;
-              }
-              
-              // Explicit check for "Luscious Locs" and similar
-              if (placeName.includes("luscious") || 
-                  placeName.includes("loc") ||
-                  placeName.includes("hair") ||
-                  placeName.includes("salon") ||
-                  placeName.includes("beauty")) {
-                console.log(`Explicitly filtering out: ${place.name}`);
-                continue;
-              }
-              
-              seenPlaceIds.add(place.place_id);
-              allStores.push({
-                id: place.place_id,
-                name: place.name,
-                address: place.formatted_address || place.vicinity,
-                distance: calculateDistance(
-                  parseFloat(latitude),
-                  parseFloat(longitude),
-                  place.geometry.location.lat,
-                  place.geometry.location.lng
-                ),
-                rating: place.rating,
-                latitude: place.geometry.location.lat,
-                longitude: place.geometry.location.lng,
-                isGroceryStore: true
-              });
-            }
-          }
-        } else {
-          console.log(`Unexpected response for ${chain}:`, response.data);
-          continue;
-        }
-      } catch (error) {
-        console.error(
-          `Error searching for ${chain}:`,
-          (error.response && error.response.data) || error.message
-        );
-        continue;
-      }
-
-      // Add delay between requests
-      await new Promise((resolve) => setTimeout(resolve, 200));
-    }
-
-    // Filter out any stores that don't match grocery keywords or match non-grocery keywords
-    allStores = allStores.filter(store => {
-      const storeName = store.name.toLowerCase();
-      
-      // Check against non-grocery keywords but with exceptions
-      const isLikelyNonGrocery = nonGroceryKeywords.some(keyword => {
-        // Skip certain keywords for common grocery stores that might get filtered incorrectly
-        if (
-          (storeName.includes("dollar") && keyword === "dollar") ||
-          (storeName.includes("family dollar") && keyword === "family") ||
-          (storeName.includes("food lion") && keyword === "food") ||
-          (storeName.includes("walmart") && keyword === "mart") ||
-          // Add other exceptions as needed
-          (storeName.includes("market") && keyword === "market") ||
-          (storeName.includes("grocery") && keyword === "grocery") ||
-          (storeName.includes("super") && keyword === "super")
-        ) {
-          return false;
-        }
-        return storeName.includes(keyword.toLowerCase());
-      });
-      
-      if (isLikelyNonGrocery) {
-        console.log(`Filtering out non-grocery store: ${store.name}`);
-        return false;
-      }
-      
-      return true;
-    });
-
-    // Filter stores by distance and sort
-    const nearbyStores = allStores
-      .filter((store) => store.distance <= RADIUS_MILES)
-      .sort((a, b) => a.distance - b.distance);
-      
-    // Log total available stores before slicing
-    console.log(`Total available stores before limiting: ${nearbyStores.length}`);
+    const { latitude, longitude, items } = req.query;
     
-    // After filtering with general rules, apply a final explicit filter to ensure test stores are removed
-    const finalFilteredStores = nearbyStores.filter(store => {
-      const storeName = store.name.toLowerCase();
-      
-      // Explicitly exclude test stores or non-grocery stores by name
-      if (
-        storeName.includes("luscious loc") || 
-        storeName.includes("salon") ||
-        storeName.includes("hair") ||
-        storeName.includes("beauty shop") ||
-        storeName.includes("spa")
-      ) {
-        console.log(`Final filter removing: ${store.name}`);
-        return false;
-      }
-      
-      return true;
-    });
-
-    // Get the top stores after applying all filters
-    const topStores = finalFilteredStores.slice(0, 40);
-
-    if (topStores.length === 0) {
-      console.error("No stores found in the extended area");
-      return res.status(404).json({
-        error: `No grocery stores found within ${RADIUS_MILES} miles of your location. The area might be too remote or there might be an issue with the store data.`,
-      });
+    if (!latitude || !longitude) {
+      return res.status(400).json({ error: 'Latitude and longitude are required' });
     }
 
-    // Process and filter the results
-    const processedStores = topStores
-      .filter(
-        (store) =>
-          store.business_status === "OPERATIONAL" || !store.business_status
-      )
-      .map((store) => {
-        return {
-          id: store.id,
-          name: store.name,
-          address: store.address,
-          distance: store.distance,
-          rating: store.rating,
-          latitude: store.latitude,
-          longitude: store.longitude,
-        };
-      });
+    console.log('Searching for stores near:', { latitude, longitude });
 
-    console.log("Found and processed stores:", processedStores.length);
+    // Parse items if provided as JSON string
+    let searchItems = [];
+    try {
+      if (items) {
+        searchItems = JSON.parse(items);
+      }
+    } catch (e) {
+      console.error('Error parsing items:', e);
+    }
 
-    // Log all store names being returned to client
-    console.log("Final stores being returned to client:");
-    processedStores.forEach((store, index) => {
-      console.log(`${index + 1}. ${store.name} (${store.distance.toFixed(1)} miles)`);
-    });
+    // If no items provided, return error
+    if (!searchItems || searchItems.length === 0) {
+      return res.status(400).json({ error: 'No items provided in shopping list' });
+    }
 
-    res.json(processedStores);
-  } catch (error) {
-    console.error(
-      "Error finding stores:",
-      (error.response && error.response.data) || error.message
+    console.log(`Searching for items: ${searchItems.join(', ')}`);
+
+    // Search for all items in parallel
+    const searchPromises = searchItems.map(item => 
+      scrapeGoogleShopping(item)
+        .then(result => ({ item, result }))
+        .catch(error => ({ item, error }))
     );
-    res.status(500).json({
-      error:
-        "Failed to find stores. Please check your location settings and try again.",
-      details: (error.response && error.response.data) || error.message,
+
+    const searchResults = await Promise.all(searchPromises);
+
+    // Combine all store results
+    const storeMap = new Map();
+
+    // List of valid grocery store keywords
+    const groceryStoreKeywords = [
+      'walmart', 'target', 'kroger', 'publix', 'costco', 'sam', 'sams', "sam's", 'whole foods',
+      'trader', 'food lion', 'harris teeter', 'aldi', 'lidl', 'giant', 'safeway',
+      'wegmans', 'shoprite', 'stop & shop', 'meijer', 'grocery', 'supermarket',
+      'market', 'foods', 'fresh market', 'food store', 'mart', 'deli', 'farmers',
+      'food', 'produce', 'wholesale', 'albertsons', 'piggly', 'heb', 'winco', 'jewel',
+      'ingles', 'acme', 'price chopper', 'shoppers', 'weis', 'schnucks', 'sprouts',
+      'smart & final', 'price rite', 'raleys', 'foodtown', 'pathmark', 'hannaford',
+      'club', 'stater', 'homeland', 'savemart', 'super', 'vons', 'bj', 'bakery', 'hy-vee',
+      'store', 'shop', 'express', 'pantry', 'central', 'place', 'dollar', 'local', 'town'
+    ];
+
+    searchResults.forEach(({ item, result, error }) => {
+      if (error || !result?.success || !result?.stores) {
+        console.error(`Error searching for ${item}:`, error || 'No results');
+        return;
+      }
+
+      result.stores.forEach(store => {
+        if (!store.name || !store.items || store.items.length === 0) return;
+
+        // More lenient store filtering to include more results
+        const storeLower = store.name.toLowerCase();
+        
+        // Always include major chains even if they don't have grocery keywords
+        const majorChains = [
+          'walmart', 'target', 'kroger', 'costco', "sam's club", 'sams club', 'publix', 'aldi',
+          'lidl', 'trader joe', 'whole foods', 'safeway', 'giant', 'food lion', 'wegmans'
+        ];
+        const isMajorChain = majorChains.some(chain => storeLower.includes(chain));
+        
+        // For other stores, check if they match grocery keywords with more lenient matching
+        const isGroceryStore = isMajorChain || groceryStoreKeywords.some(keyword => 
+          storeLower.includes(keyword.toLowerCase())
+        );
+        
+        // Skip only specific non-grocery establishments
+        const nonGroceryKeywords = ['gas station', 'restaurant', 'cafe', 'cinema', 'theater', 'hotel', 'motel', 'auto parts'];
+        const isNonGrocery = nonGroceryKeywords.some(keyword => storeLower.includes(keyword));
+        
+        if ((!isGroceryStore && !isMajorChain) || isNonGrocery) {
+          console.log(`Skipping non-grocery store: ${store.name}`);
+          return;
+        }
+
+        const normalizedName = normalizeStoreName(store.name);
+        if (!storeMap.has(normalizedName)) {
+          storeMap.set(normalizedName, {
+            place_id: store.name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+            name: normalizedName,
+            address: store.name,
+            latitude: parseFloat(latitude),
+            longitude: parseFloat(longitude),
+            distance: store.distance || null,
+            items: [],
+            id: store.name.toLowerCase().replace(/[^a-z0-9]/g, '-')
+          });
+        }
+
+        // Add items to the store with their exact Google Shopping names
+        const existingStore = storeMap.get(normalizedName);
+        store.items.forEach(storeItem => {
+          existingStore.items.push({
+            name: item,                                // Original search query item name
+            productName: storeItem.name || item,       // Actual product name from Google Shopping
+            price: parseFloat(storeItem.price.replace(/[^0-9.]/g, '')),
+            lastUpdated: new Date().toISOString()
+          });
+        });
+      });
     });
+
+    // Convert to array and sort
+    const finalStores = Array.from(storeMap.values())
+      .sort((a, b) => {
+        // First by number of items found (descending)
+        const itemsDiff = b.items.length - a.items.length;
+        if (itemsDiff !== 0) return itemsDiff;
+
+        // Then by distance if available
+        if (a.distance !== null && b.distance !== null) {
+          return a.distance - b.distance;
+        }
+        return a.name.localeCompare(b.name);
+      })
+      .slice(0, 20); // Increase from 10 to 20 stores
+
+    console.log('Final stores being returned to client:');
+    finalStores.forEach((store, index) => {
+      console.log(`${index + 1}. ${store.name}${store.distance ? ` (${store.distance} miles)` : ''}`);
+      console.log(`   Items found: ${store.items.length}`);
+      if (store.items.length > 0) {
+        console.log('   Items:', JSON.stringify(store.items, null, 2));
+      }
+    });
+
+    res.json({ stores: finalStores });
+  } catch (error) {
+    console.error('Error finding stores:', error);
+    res.status(500).json({ error: error.message });
   }
 });
+
+// Helper function to normalize store names
+function normalizeStoreName(name) {
+  if (!name) return '';
+  
+  // Common store name mappings
+  const storeMap = {
+    'walmart supercenter': 'Walmart',
+    'walmart neighborhood market': 'Walmart',
+    'target store': 'Target',
+    'target grocery': 'Target',
+    'kroger marketplace': 'Kroger',
+    'publix super market': 'Publix',
+    'costco wholesale': 'Costco',
+    "sam's club": "Sam's Club",
+    'whole foods market': 'Whole Foods',
+    "trader joe's": "Trader Joe's",
+    'food lion': 'Food Lion',
+    'harris teeter': 'Harris Teeter',
+    'aldi market': 'ALDI',
+    'dollar general': 'Dollar General',
+    'family dollar': 'Family Dollar',
+    'giant food': 'Giant',
+    'giant eagle': 'Giant Eagle',
+    'safeway': 'Safeway',
+    'wegmans': 'Wegmans',
+    'shoprite': 'ShopRite',
+    'stop & shop': 'Stop & Shop',
+    'meijer': 'Meijer',
+    'heb': 'H-E-B',
+    'albertsons': 'Albertsons',
+    'sprouts': 'Sprouts Farmers Market',
+    'fresh market': 'The Fresh Market',
+    'winn dixie': 'Winn-Dixie'
+  };
+
+  const lowerName = name.toLowerCase();
+  
+  // Check for exact matches first
+  for (const [key, value] of Object.entries(storeMap)) {
+    if (lowerName.includes(key)) {
+      return value;
+    }
+  }
+
+  // If no match found, return the original name with proper capitalization
+  return name.split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}
+
+// Helper function to calculate distance between two points in miles
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 3959; // Earth's radius in miles
+  const dLat = deg2rad(lat2 - lat1);
+  const dLon = deg2rad(lon2 - lon1);
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c; // Distance in miles
+}
+
+function deg2rad(deg) {
+  return deg * (Math.PI/180);
+}
 
 // Endpoint to compare prices across stores
 app.post("/api/compare", async (req, res) => {
@@ -724,25 +622,6 @@ app.post("/api/compare", async (req, res) => {
     res.status(500).json({ error: "Failed to compare prices" });
   }
 });
-
-function calculateDistance(lat1, lon1, lat2, lon2) {
-  const R = 6371; // Radius of the earth in km
-  const dLat = deg2rad(lat2 - lat1);
-  const dLon = deg2rad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(deg2rad(lat1)) *
-      Math.cos(deg2rad(lat2)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const d = R * c; // Distance in km
-  return d * 0.621371; // Convert to miles
-}
-
-function deg2rad(deg) {
-  return deg * (Math.PI / 180);
-}
 
 // OpenAI-powered product price extraction
 async function extractPriceWithOpenAI(item, store, html) {
@@ -1927,3 +1806,52 @@ async function extractStructuredData(page, item, store) {
     return null;
   }
 }
+
+// Add new endpoint to use run-scraper directly
+app.get("/api/scrape-prices", async (req, res) => {
+  try {
+    const { item, location } = req.query;
+    if (!item) {
+      return res.status(400).json({ error: "Missing item parameter" });
+    }
+
+    console.log(`Using direct scraper for ${item}${location ? ` near ${location}` : ' nearby'}`);
+    
+    const result = await scrapeGoogleShopping(item, location || '');
+    
+    if (!result.success) {
+      return res.status(200).json({
+        success: false,
+        error: result.error || 'Failed to find prices'
+      });
+    }
+
+    // Transform the scraper results into the format expected by the frontend
+    const transformedStores = result.stores.map(store => ({
+      name: store.name,
+      distance: store.distance ? parseFloat(store.distance.match(/\d+(\.\d+)?/)[0]) : null,
+      items: store.items.map(item => ({
+        name: item.name,
+        price: parseFloat(item.price.replace(/[^\d.]/g, '')),
+        method: 'google-shopping'
+      }))
+    }));
+
+    res.json({
+      success: true,
+      stores: transformedStores,
+      totalStores: transformedStores.length,
+      totalProducts: result.stores.reduce((sum, store) => sum + store.items.length, 0)
+    });
+  } catch (error) {
+    console.error("Error using direct scraper:", error);
+    res.status(200).json({
+      success: false,
+      error: error.message || 'Failed to scrape prices'
+    });
+  }
+});
+
+app.get('/api/mapbox-token', (req, res) => {
+  res.json({ token: process.env.MAPBOX_TOKEN });
+});
