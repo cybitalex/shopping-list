@@ -299,7 +299,7 @@ export const searchProducts = async (
       displayName,
       price,
       unit,
-      storeId: store.id,
+      storeId: store.id || store.place_id || `store-${Date.now()}`, // Provide a fallback ID if none exists
       storeName: store.name,
       isEstimate,
       lastUpdated: new Date(),

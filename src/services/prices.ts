@@ -32,7 +32,7 @@ export const estimatePrices = async (
         const confidence = 0.7 + (store.rating || 3) / 10; // Higher rating = higher confidence
 
         itemEstimates.push({
-          storeId: store.id,
+          storeId: store.id || store.place_id || `store-${Date.now()}`, // Provide a fallback ID
           itemName: item,
           price: Number(estimatedPrice.toFixed(2)),
           confidence: Number(confidence.toFixed(2)),

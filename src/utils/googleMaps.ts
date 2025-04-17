@@ -114,7 +114,7 @@ interface SearchNearbyRequest {
   textQuery: string;
   locationRestriction?: google.maps.Circle | google.maps.CircleLiteral;
   locationBias?: {
-    circle?: {
+    circle: {
       center: { lat: number; lng: number };
       radius: number;
     }
@@ -140,7 +140,7 @@ export const searchNearbyStores = async (
 
   try {
     // Use the new Place.searchNearby() method
-    const request: SearchNearbyRequest = {
+    const request: any = {
       locationBias: {
         circle: {
           center: { lat: location.lat, lng: location.lng },
