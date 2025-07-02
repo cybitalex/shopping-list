@@ -1,0 +1,62 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: shopping-list-backend-test
+    restart: unless-stopped
+    networks:
+      - app-network
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - MAPBOX_TOKEN=${MAPBOX_TOKEN}
+      - VITE_MAPBOX_TOKEN=${MAPBOX_TOKEN}
+      # Enable Playwright for Google Shopping scraping
+      - ENABLE_PLAYWRIGHT=true
+      - ENABLE_AI_EXTRACTION=true
+      - USE_GOOGLE_SEARCH=true
+      - PLAYWRIGHT_HEADLESS=true
+      # Playwright configuration for Docker
+      - PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+      - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+      - CORS_ORIGIN=http://localhost:5173
+    volumes:
+      - ./:/app
+      - /app/node_modules
+      - ./screenshots:/app/screenshots
+    ports:
+      - "3000:3000"
+    command: ["npm", "run", "start:server"]
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      args:
+        - NODE_ENV=development
+    container_name: shopping-list-frontend-test
+    restart: unless-stopped
+    networks:
+      - app-network
+    environment:
+      - NODE_ENV=development
+      - VITE_BACKEND_URL=http://backend:3000
+      - VITE_GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
+      - VITE_GOOGLE_MAPS_ID=${VITE_GOOGLE_MAPS_ID}
+      - VITE_MAPBOX_TOKEN=${MAPBOX_TOKEN}
+      - VITE_FRONTEND_URL=http://localhost:5173
+    volumes:
+      - .:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+
+networks:
+  app-network:
+    driver: bridge

@@ -12,10 +12,6 @@ RUN apk add --no-cache \
     nodejs \
     yarn
 
-# Set environment variables for Playwright
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
-
 # Create app directory
 WORKDIR /app
 
@@ -25,8 +21,10 @@ COPY package*.json ./
 # Install dependencies
 RUN npm install --legacy-peer-deps
 
-# Install Playwright browsers
-RUN npx playwright install chromium
+# Set environment variables for Playwright to use system Chromium
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+ENV PLAYWRIGHT_BROWSERS_PATH=/usr/bin
 
 # Copy app source
 COPY . .

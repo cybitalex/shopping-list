@@ -11,6 +11,8 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "start": ". ~/.nvm/nvm.sh && nvm use 18 && node server.js",
+    "start:server": "node server.js",
+    "start:frontend": "vite --host 0.0.0.0 --port 5173",
     "install-browsers": "playwright install chromium"
   },
   "dependencies": {
