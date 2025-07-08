@@ -26,6 +26,7 @@ import Header from "./components/Header";
 import type { Store as BaseStore } from "./types/store";
 import { findNearbyStores } from "./services/places";
 import { loadGoogleMaps } from "./utils/googleMaps";
+import CheapestItemsSummary from "./components/CheapestItemsSummary";
 
 interface GooglePlacesStore {
   place_id: string;
@@ -88,6 +89,7 @@ function App() {
     null
   );
   const [locationRequested, setLocationRequested] = useState(false);
+  const [showCheapestSummary, setShowCheapestSummary] = useState(false);
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -144,6 +146,7 @@ function App() {
           })),
         })) as ComparisonStore[]
       );
+      setShowCheapestSummary(false); // Hide summary when setting stores without prices
     } catch (err) {
       console.error("Location error:", err);
       setError(err instanceof Error ? err.message : "Failed to get location");
@@ -186,6 +189,7 @@ function App() {
 
         // Clear existing stores first to avoid displaying stores from the previous location
         setStores([]);
+        setShowCheapestSummary(false); // Hide summary when clearing stores
 
         // Update the current location state with the new geocoded coordinates
         setCurrentLocation({ lat, lng });
@@ -230,6 +234,7 @@ function App() {
       name: itemName,
     };
     setItems((prevItems) => [...prevItems, newItem]);
+    setShowCheapestSummary(false); // Hide summary when items are added
   };
 
   // Enhanced location search that also triggers price search
@@ -247,6 +252,7 @@ function App() {
     setStores([]);
     setSelectedStore(null);
     setCheapestStore(null);
+    setShowCheapestSummary(false); // Hide summary when clearing results
 
     // Get location if we don't have it yet
     if (!currentLocation) {
@@ -287,6 +293,7 @@ function App() {
   ) => {
     setIsLocatingStores(true);
     setError(null);
+    setShowCheapestSummary(false); // Hide summary while loading
 
     try {
       // Clear any existing stores first to ensure we only display freshly fetched ones
@@ -331,12 +338,14 @@ function App() {
 
       setStores(processedStores);
       setSelectedStore(null);
+      setShowCheapestSummary(true); // Show summary when we have final results
     } catch (error) {
       console.error("Error finding nearby stores:", error);
       setError(
         error instanceof Error ? error.message : "Failed to find stores"
       );
       setStores([]);
+      setShowCheapestSummary(false);
     } finally {
       setIsLocatingStores(false);
     }
@@ -351,6 +360,12 @@ function App() {
         <Header />
 
         <Container maxWidth="lg" sx={{ flex: 1, mt: 2, py: 4 }}>
+          {/* Cheapest Items Summary */}
+          <CheapestItemsSummary
+            items={items}
+            stores={stores as any}
+            showSummary={showCheapestSummary}
+          />
           {/* Map at the top */}
           <Paper sx={{ p: 3, mb: 3 }}>
             <StoreComparison

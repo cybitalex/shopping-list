@@ -125,7 +125,7 @@ const Map: React.FC<MapProps> = ({
       });
 
       // Handle any map errors
-      map.on("error", (e) => {
+      map.on("error", (e: any) => {
         console.error("Mapbox error:", e);
         setError(
           "An error occurred while loading the map. Please try again later."
@@ -148,6 +148,7 @@ const Map: React.FC<MapProps> = ({
         mapInstance.current.remove();
         mapInstance.current = null;
       }
+      markers.current = [];
     };
   }, [currentLocation]);
 
@@ -174,6 +175,12 @@ const Map: React.FC<MapProps> = ({
 
     // Add store markers
     stores.forEach((store) => {
+      // Skip stores without required coordinates
+      if (store.latitude === undefined || store.longitude === undefined) {
+        console.warn(`Store ${store.name} missing coordinates, skipping`);
+        return;
+      }
+
       const isCheapest = cheapestStore?.id === store.id;
       const isSelected = selectedStore?.id === store.id;
 
@@ -216,7 +223,7 @@ const Map: React.FC<MapProps> = ({
       // Create popup content
       const popupHtml = `
         <strong>${store.name}</strong><br>
-        ${store.address}<br>
+        ${store.vicinity || "Address not available"}<br>
         <em>${store.distance.toFixed(1)} miles away</em>
         ${
           isCheapest
@@ -227,7 +234,10 @@ const Map: React.FC<MapProps> = ({
 
       // Create the popup
       const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(popupHtml);
-      popups.current[store.id] = popup;
+
+      // Use store.id or fallback to store.name for popup key
+      const popupKey = store.id || store.name;
+      popups.current[popupKey] = popup;
 
       // Create the marker
       const marker = new mapboxgl.Marker(el)
@@ -264,10 +274,15 @@ const Map: React.FC<MapProps> = ({
       });
 
       // If there's a cheapest store, zoom to it after a delay
-      if (cheapestStore && cheapestMarkerRef.current) {
+      if (
+        cheapestStore &&
+        cheapestMarkerRef.current &&
+        cheapestStore.latitude &&
+        cheapestStore.longitude
+      ) {
         setTimeout(() => {
           map.flyTo({
-            center: [cheapestStore.longitude, cheapestStore.latitude],
+            center: [cheapestStore.longitude!, cheapestStore.latitude!],
             zoom: 15,
             duration: 1000,
           });

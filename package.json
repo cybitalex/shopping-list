@@ -32,11 +32,13 @@
     "geolocation-utils": "^1.2.6",
     "leaflet": "^1.9.4",
     "mapbox-gl": "^2.15.0",
+    "msw": "^2.10.3",
     "openai": "^3.2.1",
     "playwright": "^1.51.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-leaflet": "^4.2.1"
+    "react-leaflet": "^4.2.1",
+    "serpapi": "^2.1.0"
   },
   "devDependencies": {
     "@eslint/js": "^8.56.0",

@@ -14,6 +14,10 @@ const __dirname = dirname(__filename);
 
 dotenv.config();
 
+// SerpAPI configuration
+const SERP_API_KEY = process.env.SERPER_API_KEY;
+const SERP_API_BASE_URL = "https://serpapi.com/search.json";
+
 const app = express();
 app.use(
   cors({
@@ -205,20 +209,74 @@ const EXCLUDED_STORE_TYPES = [
   "car_wash",
 ];
 
+// Helper function to search products using SerpAPI
+async function searchProductsWithSerpAPI(itemName, storeName, userLocation) {
+  try {
+    if (!SERP_API_KEY) {
+      console.warn("SerpAPI key not configured, skipping price search");
+      return null;
+    }
+
+    const params = new URLSearchParams({
+      api_key: SERP_API_KEY,
+      engine: "google_shopping",
+      q: `${itemName} ${storeName}`,
+      gl: "us",
+      hl: "en",
+      num: 10,
+    });
+
+    console.log(`Searching SerpAPI for: ${itemName} at ${storeName}`);
+    const response = await axios.get(`${SERP_API_BASE_URL}?${params}`);
+
+    if (
+      !response.data.shopping_results ||
+      response.data.shopping_results.length === 0
+    ) {
+      console.log(`No SerpAPI results for ${itemName} at ${storeName}`);
+      return null;
+    }
+
+    // Find the best match (lowest price or first result)
+    const bestResult = response.data.shopping_results.reduce(
+      (best, current) => {
+        const bestPrice = parseFloat(
+          best.price?.replace(/[^0-9.]/g, "") || "999"
+        );
+        const currentPrice = parseFloat(
+          current.price?.replace(/[^0-9.]/g, "") || "999"
+        );
+        return currentPrice < bestPrice ? current : best;
+      }
+    );
+
+    return {
+      name: bestResult.title || itemName,
+      price: bestResult.price,
+      rating: bestResult.rating,
+      reviews: bestResult.reviews,
+      source: "serpapi",
+    };
+  } catch (error) {
+    console.error(
+      `Error searching SerpAPI for ${itemName} at ${storeName}:`,
+      error
+    );
+    return null;
+  }
+}
+
+// Add a new route for /api/stores to return real store data
 app.get("/api/stores", async (req, res) => {
   try {
     const { latitude, longitude, items } = req.query;
 
     if (!latitude || !longitude) {
-      return res
-        .status(400)
-        .json({ error: "Latitude and longitude are required" });
+      return res.status(400).json({
+        success: false,
+        error: "Latitude and longitude are required",
+      });
     }
-
-    // Log with timestamp to identify different requests
-    console.log(
-      `[${new Date().toISOString()}] Searching for stores near: ${latitude}, ${longitude}`
-    );
 
     // Parse items if provided as JSON string
     let searchItems = [];
@@ -230,156 +288,178 @@ app.get("/api/stores", async (req, res) => {
       console.error("Error parsing items:", e);
     }
 
-    // If no items provided, return error
     if (!searchItems || searchItems.length === 0) {
-      return res
-        .status(400)
-        .json({ error: "No items provided in shopping list" });
+      return res.status(400).json({
+        success: false,
+        error: "No items provided in shopping list",
+      });
     }
 
-    console.log(`Searching for items: ${searchItems.join(", ")}`);
-
-    // Search for all items in parallel with playwright using browser geolocation
-    const searchPromises = searchItems.map((item) =>
-      scrapeGoogleShopping(item, {
-        latitude: parseFloat(latitude),
-        longitude: parseFloat(longitude),
-      })
-        .then((result) => ({ item, result }))
-        .catch((error) => {
-          console.error(`Error scraping for ${item}:`, error);
-          return { item, error };
-        })
+    console.log(
+      `Searching for stores near: ${latitude}, ${longitude} with items: ${searchItems.join(
+        ", "
+      )}`
     );
 
-    const searchResults = await Promise.all(searchPromises);
+    // Step 1: Find nearby grocery stores using Google Maps Places API
+    const nearbyStores = await findNearbyGroceryStores(
+      parseFloat(latitude),
+      parseFloat(longitude)
+    );
 
-    // Log the results for debugging
-    searchResults.forEach(({ item, result, error }) => {
-      if (error) {
-        console.error(`Error for ${item}:`, error);
-      } else if (result) {
-        console.log(
-          `Results for ${item}: ${
-            result.success ? "Success" : "Failed"
-          }, Stores: ${result.stores?.length || 0}`
-        );
-      }
-    });
-
-    // Combine all store results - only use stores that have distance information
-    // which means they are physically located near the provided coordinates
-    const storeMap = new Map();
-
-    searchResults.forEach(({ item, result, error }) => {
-      if (error || !result?.success || !result?.stores) {
-        console.error(`Error searching for ${item}:`, error || "No results");
-        return;
-      }
-
-      result.stores.forEach((store) => {
-        // Skip stores without distance information as they might not be near the requested location
-        if (
-          !store.name ||
-          !store.items ||
-          store.items.length === 0 ||
-          store.distance === null
-        ) {
-          console.log(
-            `Skipping store ${
-              store.name || "unknown"
-            } - missing required data or distance`
-          );
-          return;
-        }
-
-        // Skip stores with unrealistic distances (too far or too small)
-        if (store.distance > 50 || store.distance < 0.01) {
-          console.log(
-            `Skipping store ${store.name} - unrealistic distance ${store.distance} miles`
-          );
-          return;
-        }
-
-        // Skip non-grocery establishments
-        const nonGroceryKeywords = [
-          "gas station",
-          "restaurant",
-          "cafe",
-          "cinema",
-          "theater",
-          "hotel",
-          "motel",
-          "auto parts",
-        ];
-        const isNonGrocery = nonGroceryKeywords.some((keyword) =>
-          store.name.toLowerCase().includes(keyword)
-        );
-
-        if (isNonGrocery) {
-          console.log(`Skipping non-grocery store: ${store.name}`);
-          return;
-        }
-
-        // Generate a unique ID for this store based on name and location
-        const storeId = `${store.name
-          .toLowerCase()
-          .replace(/[^a-z0-9]/g, "-")}-${(store.distance || 0).toFixed(1)}`;
-
-        if (!storeMap.has(storeId)) {
-          storeMap.set(storeId, {
-            place_id: storeId,
-            name: store.name,
-            address: store.name,
-            latitude: parseFloat(latitude),
-            longitude: parseFloat(longitude),
-            distance: store.distance || null,
-            items: [],
-            id: storeId,
-          });
-        }
-
-        // Add items to the store with their exact Google Shopping names
-        const existingStore = storeMap.get(storeId);
-        store.items.forEach((storeItem) => {
-          existingStore.items.push({
-            name: item, // Original search query item name
-            productName: storeItem.name || item, // Actual product name from Google Shopping
-            price: parseFloat(storeItem.price.replace(/[^0-9.]/g, "")),
-            lastUpdated: new Date().toISOString(),
-          });
-        });
-      });
-    });
-
-    // Convert to array and sort
-    const finalStores = Array.from(storeMap.values())
-      .sort((a, b) => {
-        // First by number of items found (descending)
-        const itemsDiff = b.items.length - a.items.length;
-        if (itemsDiff !== 0) return itemsDiff;
-
-        // Then by distance if available
-        if (a.distance !== null && b.distance !== null) {
-          return a.distance - b.distance;
-        }
-        return a.name.localeCompare(b.name);
-      })
-      .slice(0, 20); // Limit to 20 stores
-
-    if (finalStores.length === 0) {
+    if (nearbyStores.length === 0) {
       return res.status(404).json({
         success: false,
-        error: "No stores found with real prices for the requested items",
+        error: "No grocery stores found nearby",
       });
     }
 
-    res.json({ stores: finalStores });
+    console.log(`Found ${nearbyStores.length} nearby stores`);
+
+    // Step 2: For each store, fetch real product prices using SerpAPI
+    const storesWithPrices = await Promise.all(
+      nearbyStores.map(async (store) => {
+        const storeItems = [];
+
+        // Fetch prices for each requested item at this store
+        for (const item of searchItems) {
+          try {
+            console.log(`Fetching price for ${item} at ${store.name}`);
+
+            const serpResult = await searchProductsWithSerpAPI(
+              item,
+              store.name,
+              { lat: parseFloat(latitude), lng: parseFloat(longitude) }
+            );
+
+            if (serpResult) {
+              storeItems.push({
+                name: item,
+                productName: serpResult.name || item,
+                price: parseFloat(
+                  serpResult.price?.replace(/[^0-9.]/g, "") || "0"
+                ),
+                lastUpdated: new Date().toISOString(),
+                isGenericName: serpResult.name === item,
+                productDetail: null,
+              });
+            } else {
+              // If no price found, add item with null price
+              storeItems.push({
+                name: item,
+                productName: item,
+                price: null,
+                lastUpdated: new Date().toISOString(),
+                isGenericName: true,
+                productDetail: null,
+              });
+            }
+          } catch (error) {
+            console.error(
+              `Error fetching price for ${item} at ${store.name}:`,
+              error
+            );
+            // Add item with null price on error
+            storeItems.push({
+              name: item,
+              productName: item,
+              price: null,
+              lastUpdated: new Date().toISOString(),
+              isGenericName: true,
+              productDetail: null,
+            });
+          }
+        }
+
+        return {
+          ...store,
+          items: storeItems,
+        };
+      })
+    );
+
+    // Step 3: Return the real store data with prices
+    res.json({
+      success: true,
+      stores: storesWithPrices,
+    });
   } catch (error) {
-    console.error("Error finding stores:", error);
-    res.status(500).json({ error: error.message });
+    console.error("Error in /api/stores:", error);
+    res.status(500).json({
+      success: false,
+      error: error.message || "Failed to fetch stores",
+    });
   }
 });
+
+// Helper function to find nearby grocery stores using Google Maps Places API
+async function findNearbyGroceryStores(latitude, longitude) {
+  try {
+    const radius = 32186.9; // 20 miles in meters
+    const types = ["grocery_or_supermarket", "supermarket"];
+    const stores = [];
+
+    for (const type of types) {
+      const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${latitude},${longitude}&radius=${radius}&type=${type}&key=${GOOGLE_MAPS_API_KEY}`;
+
+      const response = await axios.get(url);
+      const data = response.data;
+
+      if (data.status === "OK" && data.results) {
+        data.results.forEach((place) => {
+          // Calculate distance from user location
+          const distance = calculateDistance(
+            latitude,
+            longitude,
+            place.geometry.location.lat,
+            place.geometry.location.lng
+          );
+
+          // Only include stores within 20 miles
+          if (distance <= 20) {
+            stores.push({
+              id: place.place_id,
+              place_id: place.place_id,
+              name: place.name,
+              vicinity: place.vicinity,
+              distance: distance,
+              latitude: place.geometry.location.lat,
+              longitude: place.geometry.location.lng,
+              rating: place.rating || null,
+              priceLevel: place.price_level || null,
+            });
+          }
+        });
+      }
+    }
+
+    // Remove duplicates and sort by distance
+    const uniqueStores = stores.filter(
+      (store, index, self) =>
+        index === self.findIndex((s) => s.place_id === store.place_id)
+    );
+
+    return uniqueStores.sort((a, b) => a.distance - b.distance).slice(0, 20);
+  } catch (error) {
+    console.error("Error finding nearby stores:", error);
+    return [];
+  }
+}
+
+// Helper function to calculate distance between two points
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 3959; // Earth's radius in miles
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
 
 // Endpoint to compare prices across stores
 app.post("/api/compare", async (req, res) => {

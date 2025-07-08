@@ -629,6 +629,15 @@ const StoreComparison: React.FC<StoreComparisonProps> = ({
         );
       }
     }
+
+    // Cleanup on component unmount
+    return () => {
+      if (mapInstance.current) {
+        mapInstance.current.remove();
+        mapInstance.current = null;
+      }
+      markers.current = [];
+    };
   }, [currentLocation, availableStores, mapboxToken, onError]);
 
   // Calculate store totals using the new data structure
