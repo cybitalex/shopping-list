@@ -7,6 +7,7 @@ import {
   keyframes,
   Typography,
   Alert,
+  Chip,
 } from "@mui/material";
 import type { Store } from "../types/store";
 import mapboxgl from "mapbox-gl";
@@ -25,6 +26,19 @@ const pulseAnimation = keyframes`
   100% {
     transform: scale(0.95);
     box-shadow: 0 0 0 0 rgba(15, 157, 88, 0);
+  }
+`;
+
+// Define bounce animation for cheapest stores
+const bounceAnimation = keyframes`
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-10px);
+  }
+  60% {
+    transform: translateY(-5px);
   }
 `;
 
@@ -66,6 +80,7 @@ const Map: React.FC<MapProps> = ({
   const markers = useRef<mapboxgl.Marker[]>([]);
   const cheapestMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const popups = useRef<{ [id: string]: mapboxgl.Popup }>({});
+  const [clickedStore, setClickedStore] = useState<Store | null>(null);
 
   // Initialize map when component mounts and currentLocation is available
   useEffect(() => {
@@ -165,6 +180,44 @@ const Map: React.FC<MapProps> = ({
     Object.values(popups.current).forEach((popup) => popup.remove());
     popups.current = {};
 
+    // Add CSS animations to document head
+    const styleSheet = document.createElement("style");
+    styleSheet.textContent = `
+      @keyframes pulse {
+        0% {
+          box-shadow: 0 0 0 0 rgba(15, 157, 88, 0.7);
+        }
+        70% {
+          box-shadow: 0 0 0 10px rgba(15, 157, 88, 0);
+        }
+        100% {
+          box-shadow: 0 0 0 0 rgba(15, 157, 88, 0);
+        }
+      }
+      
+      @keyframes bounce {
+        0%, 20%, 50%, 80%, 100% {
+          transform: translateY(0);
+        }
+        40% {
+          transform: translateY(-10px);
+        }
+        60% {
+          transform: translateY(-5px);
+        }
+      }
+      
+      @keyframes glow {
+        0%, 100% {
+          box-shadow: 0 0 5px rgba(15, 157, 88, 0.5);
+        }
+        50% {
+          box-shadow: 0 0 20px rgba(15, 157, 88, 0.8), 0 0 30px rgba(15, 157, 88, 0.6);
+        }
+      }
+    `;
+    document.head.appendChild(styleSheet);
+
     // Coordinates for bounding box calculation
     const coordinates: [number, number][] = [];
 
@@ -187,53 +240,77 @@ const Map: React.FC<MapProps> = ({
       // Create a DOM element for the marker
       const el = document.createElement("div");
       el.className = "store-marker";
-      el.style.width = isCheapest ? "22px" : "18px";
-      el.style.height = isCheapest ? "22px" : "18px";
+      el.style.width = isCheapest ? "24px" : "18px";
+      el.style.height = isCheapest ? "24px" : "18px";
       el.style.backgroundColor = isCheapest
         ? "#0F9D58"
         : isSelected
         ? "#FFC107"
         : "#DB4437";
       el.style.borderRadius = "50%";
-      el.style.border = "2px solid white";
+      el.style.border = isCheapest ? "3px solid white" : "2px solid white";
       el.style.boxShadow = "0 0 5px rgba(0,0,0,0.3)";
+      el.style.cursor = "pointer";
+      el.style.transition = "all 0.3s ease";
 
-      // Add pulsing animation for cheapest store
+      // Add enhanced animations for cheapest store
       if (isCheapest) {
-        el.style.animation = "pulse 1.5s infinite";
-
-        // Add keyframes for pulse animation
-        const styleSheet = document.createElement("style");
-        styleSheet.textContent = `
-          @keyframes pulse {
-            0% {
-              box-shadow: 0 0 0 0 rgba(15, 157, 88, 0.7);
-            }
-            70% {
-              box-shadow: 0 0 0 10px rgba(15, 157, 88, 0);
-            }
-            100% {
-              box-shadow: 0 0 0 0 rgba(15, 157, 88, 0);
-            }
-          }
-        `;
-        document.head.appendChild(styleSheet);
+        el.style.animation =
+          "pulse 1.5s infinite, bounce 2s infinite, glow 3s infinite";
+        el.style.zIndex = "1000";
       }
 
-      // Create popup content
-      const popupHtml = `
-        <strong>${store.name}</strong><br>
-        ${store.vicinity || "Address not available"}<br>
-        <em>${store.distance.toFixed(1)} miles away</em>
-        ${
-          isCheapest
-            ? '<br><strong style="color:#0F9D58">Cheapest Store!</strong>'
-            : ""
+      // Enhanced hover effects
+      el.addEventListener("mouseenter", () => {
+        el.style.transform = "scale(1.2)";
+        el.style.zIndex = "1001";
+      });
+
+      el.addEventListener("mouseleave", () => {
+        el.style.transform = "scale(1)";
+        el.style.zIndex = isCheapest ? "1000" : "1";
+      });
+
+      // Create enhanced popup content with better formatting
+      const getAddressDisplay = (store: Store) => {
+        if (store.vicinity) {
+          return store.vicinity;
         }
+        // If no vicinity, try to construct from other available data
+        return "Address not available";
+      };
+
+      const popupHtml = `
+        <div style="min-width: 200px; font-family: Arial, sans-serif;">
+          <div style="margin-bottom: 8px;">
+            <strong style="color: #333; font-size: 14px;">${store.name}</strong>
+          </div>
+          <div style="margin-bottom: 6px; color: #666; font-size: 12px;">
+            📍 ${getAddressDisplay(store)}
+          </div>
+          <div style="margin-bottom: 8px; color: #888; font-size: 11px;">
+            📏 ${store.distance.toFixed(1)} miles away
+          </div>
+          ${
+            isCheapest
+              ? '<div style="background: #0F9D58; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;">🏆 CHEAPEST STORE!</div>'
+              : ""
+          }
+          ${
+            store.rating
+              ? `<div style="margin-top: 6px; color: #666; font-size: 11px;">⭐ ${store.rating}/5 rating</div>`
+              : ""
+          }
+        </div>
       `;
 
-      // Create the popup
-      const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(popupHtml);
+      // Create the popup with better styling
+      const popup = new mapboxgl.Popup({
+        offset: 25,
+        closeButton: true,
+        closeOnClick: false,
+        maxWidth: "250px",
+      }).setHTML(popupHtml);
 
       // Use store.id or fallback to store.name for popup key
       const popupKey = store.id || store.name;
@@ -245,9 +322,17 @@ const Map: React.FC<MapProps> = ({
         .setPopup(popup)
         .addTo(map);
 
-      // Add click event to marker
+      // Enhanced click event to marker
       el.addEventListener("click", () => {
+        setClickedStore(store);
         onStoreSelect(store);
+
+        // Auto-open popup for cheapest store
+        if (isCheapest) {
+          setTimeout(() => {
+            marker.togglePopup();
+          }, 100);
+        }
       });
 
       // Save reference to marker
@@ -273,7 +358,7 @@ const Map: React.FC<MapProps> = ({
         maxZoom: 14,
       });
 
-      // If there's a cheapest store, zoom to it after a delay
+      // Enhanced animation for cheapest store
       if (
         cheapestStore &&
         cheapestMarkerRef.current &&
@@ -284,13 +369,29 @@ const Map: React.FC<MapProps> = ({
           map.flyTo({
             center: [cheapestStore.longitude!, cheapestStore.latitude!],
             zoom: 15,
-            duration: 1000,
+            duration: 1500,
+            curve: 1.42,
+            speed: 0.8,
           });
-          cheapestMarkerRef.current?.togglePopup();
+
+          // Auto-open popup for cheapest store
+          setTimeout(() => {
+            cheapestMarkerRef.current?.togglePopup();
+          }, 1600);
         }, 1000);
       }
     }
   }, [stores, cheapestStore, selectedStore, currentLocation, onStoreSelect]);
+
+  // Clear clicked store after a delay
+  useEffect(() => {
+    if (clickedStore) {
+      const timer = setTimeout(() => {
+        setClickedStore(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [clickedStore]);
 
   if (error) {
     return (
@@ -335,16 +436,60 @@ const Map: React.FC<MapProps> = ({
   }
 
   return (
-    <Box
-      ref={mapRef}
-      sx={{
-        width: "100%",
-        height: "400px",
-        borderRadius: "8px",
-        overflow: "hidden",
-        boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-      }}
-    />
+    <Box sx={{ position: "relative" }}>
+      {/* Clicked store info overlay */}
+      {clickedStore && (
+        <Box
+          sx={{
+            position: "absolute",
+            top: 10,
+            left: 10,
+            right: 10,
+            zIndex: 1000,
+            bgcolor: "background.paper",
+            borderRadius: "8px",
+            p: 2,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+            border: "1px solid",
+            borderColor: "primary.main",
+          }}
+        >
+          <Typography variant="h6" gutterBottom>
+            {clickedStore.name}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            📍 {clickedStore.vicinity || "Address not available"}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            📏 {clickedStore.distance.toFixed(1)} miles away
+          </Typography>
+          {clickedStore.rating && (
+            <Typography variant="body2" color="text.secondary">
+              ⭐ {clickedStore.rating}/5 rating
+            </Typography>
+          )}
+          {cheapestStore?.id === clickedStore.id && (
+            <Chip
+              label="🏆 CHEAPEST STORE"
+              color="success"
+              size="small"
+              sx={{ mt: 1 }}
+            />
+          )}
+        </Box>
+      )}
+
+      <Box
+        ref={mapRef}
+        sx={{
+          width: "100%",
+          height: "400px",
+          borderRadius: "8px",
+          overflow: "hidden",
+          boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+        }}
+      />
+    </Box>
   );
 };
 

@@ -748,9 +748,9 @@ const StoreComparison: React.FC<StoreComparisonProps> = ({
     const extractUnitInfo = (productName: string) => {
       const lowerName = productName.toLowerCase();
 
-      // Weight-based units (pounds, ounces)
+      // Weight-based units (pounds, ounces, grams)
       const weightMatch = lowerName.match(
-        /(\d+(\.\d+)?)\s*(lb|pound|oz|ounce|g|gram)/i
+        /(\d+(\.\d+)?)\s*(lb|pound|oz|ounce|g|gram|kg|kilogram)/i
       );
       if (weightMatch) {
         const amount = parseFloat(weightMatch[1]);
@@ -760,16 +760,21 @@ const StoreComparison: React.FC<StoreComparisonProps> = ({
         if (unit === "pound" || unit === "lb") unit = "lb";
         else if (unit === "ounce" || unit === "oz") unit = "oz";
         else if (unit === "gram" || unit === "g") unit = "g";
+        else if (unit === "kilogram" || unit === "kg") unit = "kg";
 
         return {
           text: `${amount} ${unit}`,
           amount: amount,
           unit: unit,
+          pricingType: "per unit",
+          description: `${amount} ${unit} package`,
         };
       }
 
       // Count-based units (pack, count, etc.)
-      const countMatch = lowerName.match(/(\d+)[\s-]*(ct|count|pack|pk)/i);
+      const countMatch = lowerName.match(
+        /(\d+)[\s-]*(ct|count|pack|pk|piece|pc)/i
+      );
       if (countMatch) {
         const amount = parseInt(countMatch[1], 10);
         let unit = countMatch[2].toLowerCase();
@@ -777,17 +782,20 @@ const StoreComparison: React.FC<StoreComparisonProps> = ({
         // Normalize units
         if (unit === "count" || unit === "ct") unit = "ct";
         else if (unit === "pack" || unit === "pk") unit = "pk";
+        else if (unit === "piece" || unit === "pc") unit = "pc";
 
         return {
           text: `${amount} ${unit}`,
           amount: amount,
           unit: unit,
+          pricingType: "per unit",
+          description: `${amount} ${unit} package`,
         };
       }
 
-      // Volume-based units (fl oz, ml, l)
+      // Volume-based units (fl oz, ml, l, gallons)
       const volumeMatch = lowerName.match(
-        /(\d+(\.\d+)?)\s*(fl oz|ml|l|liter|gallon|gal)/i
+        /(\d+(\.\d+)?)\s*(fl oz|ml|l|liter|gallon|gal|qt|quart)/i
       );
       if (volumeMatch) {
         const amount = parseFloat(volumeMatch[1]);
@@ -798,44 +806,62 @@ const StoreComparison: React.FC<StoreComparisonProps> = ({
         else if (unit === "ml") unit = "ml";
         else if (unit === "l" || unit === "liter") unit = "l";
         else if (unit === "gallon" || unit === "gal") unit = "gal";
+        else if (unit === "quart" || unit === "qt") unit = "qt";
 
         return {
           text: `${amount} ${unit}`,
           amount: amount,
           unit: unit,
+          pricingType: "per unit",
+          description: `${amount} ${unit} container`,
         };
       }
 
       // Items sold individually
-      if (lowerName.includes(" each") || lowerName.includes("- each")) {
+      if (
+        lowerName.includes(" each") ||
+        lowerName.includes("- each") ||
+        lowerName.includes(" per item")
+      ) {
         return {
           text: "Each",
           amount: 1,
           unit: "each",
+          pricingType: "per item",
+          description: "Per individual item",
         };
       }
 
-      // Bags
+      // Bags with weight specification
       if (lowerName.includes(" bag")) {
         const match = lowerName.match(/(\d+(\.\d+)?)\s*(lb|pound)?\s*bag/i);
         if (match && match[1] && match[3]) {
+          const amount = parseFloat(match[1]);
+          const unit = match[3].toLowerCase();
           return {
-            text: `${match[1]} ${match[3]} bag`,
-            amount: parseFloat(match[1]),
-            unit: `${match[3]} bag`,
+            text: `${amount} ${unit} bag`,
+            amount: amount,
+            unit: `${unit} bag`,
+            pricingType: "per bag",
+            description: `${amount} ${unit} bag`,
           };
         }
         if (match && match[1]) {
+          const amount = parseFloat(match[1]);
           return {
-            text: `${match[1]} bag`,
-            amount: parseFloat(match[1]),
+            text: `${amount} bag`,
+            amount: amount,
             unit: "bag",
+            pricingType: "per bag",
+            description: `${amount} bag`,
           };
         }
         return {
           text: "Per bag",
           amount: 1,
           unit: "bag",
+          pricingType: "per bag",
+          description: "Per bag",
         };
       }
 
@@ -845,6 +871,8 @@ const StoreComparison: React.FC<StoreComparisonProps> = ({
           text: "Per bunch",
           amount: 1,
           unit: "bunch",
+          pricingType: "per bunch",
+          description: "Per bunch",
         };
       }
 
@@ -853,20 +881,81 @@ const StoreComparison: React.FC<StoreComparisonProps> = ({
         lowerName.includes(" jar") ||
         lowerName.includes(" bottle") ||
         lowerName.includes(" can") ||
-        lowerName.includes(" box")
+        lowerName.includes(" box") ||
+        lowerName.includes(" container")
       ) {
         return {
           text: "Per container",
           amount: 1,
           unit: "container",
+          pricingType: "per container",
+          description: "Per container",
+        };
+      }
+
+      // Per pound indicators
+      if (
+        lowerName.includes(" per lb") ||
+        lowerName.includes(" per pound") ||
+        lowerName.includes("/lb")
+      ) {
+        return {
+          text: "Per lb",
+          amount: 1,
+          unit: "lb",
+          pricingType: "per pound",
+          description: "Price per pound",
+        };
+      }
+
+      // Per ounce indicators
+      if (
+        lowerName.includes(" per oz") ||
+        lowerName.includes(" per ounce") ||
+        lowerName.includes("/oz")
+      ) {
+        return {
+          text: "Per oz",
+          amount: 1,
+          unit: "oz",
+          pricingType: "per ounce",
+          description: "Price per ounce",
+        };
+      }
+
+      // Bulk pricing indicators
+      if (
+        lowerName.includes(" bulk") ||
+        lowerName.includes(" family pack") ||
+        lowerName.includes(" value pack")
+      ) {
+        return {
+          text: "Bulk package",
+          amount: 1,
+          unit: "bulk",
+          pricingType: "per bulk package",
+          description: "Bulk package pricing",
+        };
+      }
+
+      // Organic indicators
+      if (lowerName.includes(" organic")) {
+        return {
+          text: "Organic",
+          amount: 1,
+          unit: "organic",
+          pricingType: "per unit",
+          description: "Organic product",
         };
       }
 
       // If we couldn't detect a specific unit
       return {
-        text: "Unknown",
+        text: "Unknown unit",
         amount: null,
         unit: "unknown",
+        pricingType: "unknown",
+        description: "Unit not specified",
       };
     };
 
@@ -919,9 +1008,40 @@ const StoreComparison: React.FC<StoreComparisonProps> = ({
     return (
       <Box sx={{ mt: 3 }}>
         <Paper sx={{ p: 2 }}>
-          <Typography variant="h6" gutterBottom>
-            {selectedStore.name} - Available Items
-          </Typography>
+          <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+            <StorefrontIcon sx={{ mr: 1, color: "primary.main" }} />
+            <Typography variant="h6" gutterBottom sx={{ mb: 0 }}>
+              {selectedStore.name}
+            </Typography>
+          </Box>
+
+          {/* Store Address and Details */}
+          <Box sx={{ mb: 2, p: 2, bgcolor: "grey.50", borderRadius: 1 }}>
+            <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
+              <LocationOnIcon
+                sx={{ mr: 1, color: "text.secondary", fontSize: 20 }}
+              />
+              <Typography variant="body2" color="text.secondary">
+                📍 {selectedStore.vicinity || "Address not available"}
+              </Typography>
+            </Box>
+            <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
+              <PlaceIcon
+                sx={{ mr: 1, color: "text.secondary", fontSize: 20 }}
+              />
+              <Typography variant="body2" color="text.secondary">
+                📏 {selectedStore.distance.toFixed(1)} miles away
+              </Typography>
+            </Box>
+            {selectedStore.rating && (
+              <Box sx={{ display: "flex", alignItems: "center" }}>
+                <StarIcon sx={{ mr: 1, color: "warning.main", fontSize: 20 }} />
+                <Typography variant="body2" color="text.secondary">
+                  ⭐ {selectedStore.rating}/5 rating
+                </Typography>
+              </Box>
+            )}
+          </Box>
 
           <Divider sx={{ mb: 2 }} />
 
@@ -932,7 +1052,7 @@ const StoreComparison: React.FC<StoreComparisonProps> = ({
                   <TableRow>
                     <TableCell>Item</TableCell>
                     <TableCell>Exact Product Name</TableCell>
-                    <TableCell>Unit</TableCell>
+                    <TableCell>Pricing Type</TableCell>
                     <TableCell align="right">Price</TableCell>
                     <TableCell align="right">Unit Price</TableCell>
                     <TableCell align="right">Best Price?</TableCell>
@@ -1027,9 +1147,23 @@ const StoreComparison: React.FC<StoreComparisonProps> = ({
                           </Tooltip>
                         </TableCell>
                         <TableCell>
-                          <Typography variant="body2" color="text.secondary">
-                            {unitInfo.text}
-                          </Typography>
+                          <Tooltip title={unitInfo.description}>
+                            <Box>
+                              <Typography
+                                variant="body2"
+                                color="text.secondary"
+                                sx={{ fontWeight: "medium" }}
+                              >
+                                {unitInfo.pricingType}
+                              </Typography>
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                              >
+                                {unitInfo.text}
+                              </Typography>
+                            </Box>
+                          </Tooltip>
                         </TableCell>
                         <TableCell align="right">
                           {item.price !== null ? (
@@ -1046,12 +1180,17 @@ const StoreComparison: React.FC<StoreComparisonProps> = ({
                         </TableCell>
                         <TableCell align="right">
                           {unitPrice !== null ? (
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
+                            <Tooltip
+                              title={`${unitInfo.description} - ${unitInfo.text}`}
                             >
-                              ${unitPrice.toFixed(2)}/{unitInfo.unit}
-                            </Typography>
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                sx={{ fontWeight: "medium" }}
+                              >
+                                ${unitPrice.toFixed(2)}/{unitInfo.unit}
+                              </Typography>
+                            </Tooltip>
                           ) : (
                             "—"
                           )}
@@ -1211,31 +1350,77 @@ const StoreComparison: React.FC<StoreComparisonProps> = ({
                       onClick={() => handleStoreSelect(store)}
                     >
                       <TableCell>
-                        <Typography
-                          variant="body2"
-                          component="span"
-                          sx={{
-                            fontWeight: hasCheapestItem ? "bold" : "normal",
-                            display: "flex",
-                            alignItems: "center",
-                          }}
+                        <Tooltip
+                          title={
+                            <Box>
+                              <Typography
+                                variant="body2"
+                                sx={{ fontWeight: "bold" }}
+                              >
+                                {store.name}
+                              </Typography>
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                              >
+                                📍 {store.vicinity || "Address not available"}
+                              </Typography>
+                              {store.rating && (
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                  display="block"
+                                >
+                                  ⭐ {store.rating}/5 rating
+                                </Typography>
+                              )}
+                            </Box>
+                          }
+                          arrow
+                          placement="top"
                         >
-                          {hasCheapestItem && (
-                            <Tooltip title="Has cheapest item">
-                              <StarIcon
-                                color="primary"
-                                fontSize="small"
-                                sx={{ mr: 1 }}
-                              />
-                            </Tooltip>
-                          )}
-                          {store.name}
-                        </Typography>
+                          <Typography
+                            variant="body2"
+                            component="span"
+                            sx={{
+                              fontWeight: hasCheapestItem ? "bold" : "normal",
+                              display: "flex",
+                              alignItems: "center",
+                              cursor: "pointer",
+                            }}
+                          >
+                            {hasCheapestItem && (
+                              <Tooltip title="Has cheapest item">
+                                <StarIcon
+                                  color="primary"
+                                  fontSize="small"
+                                  sx={{ mr: 1 }}
+                                />
+                              </Tooltip>
+                            )}
+                            {store.name}
+                          </Typography>
+                        </Tooltip>
                       </TableCell>
                       <TableCell>
-                        {storeDistance !== null
-                          ? `${storeDistance.toFixed(1)} mi`
-                          : "Unknown distance"}
+                        <Tooltip
+                          title={`${
+                            storeDistance !== null
+                              ? storeDistance.toFixed(1)
+                              : "Unknown"
+                          } miles from your location`}
+                          arrow
+                          placement="top"
+                        >
+                          <Typography
+                            variant="body2"
+                            sx={{ cursor: "pointer" }}
+                          >
+                            {storeDistance !== null
+                              ? `${storeDistance.toFixed(1)} mi`
+                              : "Unknown distance"}
+                          </Typography>
+                        </Tooltip>
                       </TableCell>
                       <TableCell align="right">
                         {store.items
