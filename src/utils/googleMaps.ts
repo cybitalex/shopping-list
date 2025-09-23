@@ -50,13 +50,13 @@ export const loadGoogleMaps = (apiKey: string): Promise<void> => {
     }
 
     // Clean up custom elements to prevent conflicts
+    // Note: Custom elements cannot be unregistered once defined
+    // This is a limitation of the Custom Elements API
     ["gmp-internal-google-attribution", "gmp-internal-dialog"].forEach(
       (elementName) => {
-        if (customElements.get(elementName)) {
-          // Force clean up the registration
-          // @ts-ignore - Using internal property for cleanup
-          customElements.registry.delete(elementName);
-        }
+        // Remove existing instances from DOM if they exist
+        const existingElements = document.querySelectorAll(elementName);
+        existingElements.forEach((element) => element.remove());
       }
     );
 
@@ -132,8 +132,8 @@ interface SearchNearbyRequest {
 export const searchNearbyStores = async (
   query: string,
   location: { lat: number; lng: number },
-  radius: number = 32186.9, // 20 miles in meters
-  maxStores: number = 20
+  radius: number = 8046.7, // 5 miles in meters (reduced from 20 miles for faster searches)
+  maxStores: number = 15
 ): Promise<any[]> => {
   if (!mapInstance) {
     throw new Error("Maps not initialized. Call loadGoogleMaps first.");
@@ -202,8 +202,8 @@ export const searchNearbyStores = async (
 const searchNearbyStoresLegacy = async (
   query: string,
   location: { lat: number; lng: number },
-  radius: number = 32186.9, // 20 miles in meters
-  maxStores: number = 20
+  radius: number = 8046.7, // 5 miles in meters (reduced from 20 miles for faster searches)
+  maxStores: number = 15
 ): Promise<any[]> => {
   console.warn(
     "Using deprecated PlacesService - please update code to use new Place API"

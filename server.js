@@ -210,12 +210,33 @@ const EXCLUDED_STORE_TYPES = [
 ];
 
 // Helper function to search products using SerpAPI
-async function searchProductsWithSerpAPI(itemName, storeName, userLocation) {
+// Rate limiting for SerpAPI
+let lastSerpAPICall = 0;
+const SERPAPI_RATE_LIMIT_MS = 1000; // 1 second between calls
+
+async function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function searchProductsWithSerpAPI(
+  itemName,
+  storeName,
+  userLocation,
+  retryCount = 0
+) {
   try {
     if (!SERP_API_KEY) {
       console.warn("SerpAPI key not configured, skipping price search");
       return null;
     }
+
+    // Rate limiting: ensure at least 1 second between API calls
+    const now = Date.now();
+    const timeSinceLastCall = now - lastSerpAPICall;
+    if (timeSinceLastCall < SERPAPI_RATE_LIMIT_MS) {
+      await delay(SERPAPI_RATE_LIMIT_MS - timeSinceLastCall);
+    }
+    lastSerpAPICall = Date.now();
 
     const params = new URLSearchParams({
       api_key: SERP_API_KEY,
@@ -226,8 +247,18 @@ async function searchProductsWithSerpAPI(itemName, storeName, userLocation) {
       num: 10,
     });
 
-    console.log(`Searching SerpAPI for: ${itemName} at ${storeName}`);
-    const response = await axios.get(`${SERP_API_BASE_URL}?${params}`);
+    console.log(
+      `Searching SerpAPI for: ${itemName} at ${storeName} (attempt ${
+        retryCount + 1
+      })`
+    );
+
+    const response = await axios.get(`${SERP_API_BASE_URL}?${params}`, {
+      timeout: 15000, // 15 second timeout
+      headers: {
+        "User-Agent": "ShopCheaply/1.0",
+      },
+    });
 
     if (
       !response.data.shopping_results ||
@@ -259,9 +290,33 @@ async function searchProductsWithSerpAPI(itemName, storeName, userLocation) {
     };
   } catch (error) {
     console.error(
-      `Error searching SerpAPI for ${itemName} at ${storeName}:`,
-      error
+      `Error searching SerpAPI for ${itemName} at ${storeName} (attempt ${
+        retryCount + 1
+      }):`,
+      error.code || error.message
     );
+
+    // Retry logic for connection issues
+    if (
+      (error.code === "ECONNRESET" ||
+        error.code === "ETIMEDOUT" ||
+        error.code === "ECONNREFUSED") &&
+      retryCount < 2
+    ) {
+      console.log(
+        `Retrying SerpAPI request for ${itemName} at ${storeName} in ${
+          (retryCount + 1) * 2
+        } seconds...`
+      );
+      await delay((retryCount + 1) * 2000); // Exponential backoff: 2s, 4s
+      return searchProductsWithSerpAPI(
+        itemName,
+        storeName,
+        userLocation,
+        retryCount + 1
+      );
+    }
+
     return null;
   }
 }
@@ -317,49 +372,36 @@ app.get("/api/stores", async (req, res) => {
     console.log(`Found ${nearbyStores.length} nearby stores`);
 
     // Step 2: For each store, fetch real product prices using SerpAPI
-    const storesWithPrices = await Promise.all(
-      nearbyStores.map(async (store) => {
-        const storeItems = [];
+    // Process stores sequentially to avoid overwhelming SerpAPI
+    const storesWithPrices = [];
 
-        // Fetch prices for each requested item at this store
-        for (const item of searchItems) {
-          try {
-            console.log(`Fetching price for ${item} at ${store.name}`);
+    for (const store of nearbyStores) {
+      console.log(`Processing store: ${store.name}`);
+      const storeItems = [];
 
-            const serpResult = await searchProductsWithSerpAPI(
-              item,
-              store.name,
-              { lat: parseFloat(latitude), lng: parseFloat(longitude) }
-            );
+      // Fetch prices for each requested item at this store
+      for (const item of searchItems) {
+        try {
+          console.log(`Fetching price for ${item} at ${store.name}`);
 
-            if (serpResult) {
-              storeItems.push({
-                name: item,
-                productName: serpResult.name || item,
-                price: parseFloat(
-                  serpResult.price?.replace(/[^0-9.]/g, "") || "0"
-                ),
-                lastUpdated: new Date().toISOString(),
-                isGenericName: serpResult.name === item,
-                productDetail: null,
-              });
-            } else {
-              // If no price found, add item with null price
-              storeItems.push({
-                name: item,
-                productName: item,
-                price: null,
-                lastUpdated: new Date().toISOString(),
-                isGenericName: true,
-                productDetail: null,
-              });
-            }
-          } catch (error) {
-            console.error(
-              `Error fetching price for ${item} at ${store.name}:`,
-              error
-            );
-            // Add item with null price on error
+          const serpResult = await searchProductsWithSerpAPI(item, store.name, {
+            lat: parseFloat(latitude),
+            lng: parseFloat(longitude),
+          });
+
+          if (serpResult) {
+            storeItems.push({
+              name: item,
+              productName: serpResult.name || item,
+              price: parseFloat(
+                serpResult.price?.replace(/[^0-9.]/g, "") || "0"
+              ),
+              lastUpdated: new Date().toISOString(),
+              isGenericName: serpResult.name === item,
+              productDetail: null,
+            });
+          } else {
+            // If no price found, add item with null price
             storeItems.push({
               name: item,
               productName: item,
@@ -369,14 +411,28 @@ app.get("/api/stores", async (req, res) => {
               productDetail: null,
             });
           }
+        } catch (error) {
+          console.error(
+            `Error fetching price for ${item} at ${store.name}:`,
+            error
+          );
+          // Add item with null price on error
+          storeItems.push({
+            name: item,
+            productName: item,
+            price: null,
+            lastUpdated: new Date().toISOString(),
+            isGenericName: true,
+            productDetail: null,
+          });
         }
+      }
 
-        return {
-          ...store,
-          items: storeItems,
-        };
-      })
-    );
+      storesWithPrices.push({
+        ...store,
+        items: storeItems,
+      });
+    }
 
     // Step 3: Return the real store data with prices
     res.json({
@@ -395,7 +451,8 @@ app.get("/api/stores", async (req, res) => {
 // Helper function to find nearby grocery stores using Google Maps Places API
 async function findNearbyGroceryStores(latitude, longitude) {
   try {
-    const radius = 32186.9; // 20 miles in meters
+    const radius = 8046.7; // 5 miles in meters (reduced from 20 miles for faster searches)
+    const maxDistance = 5; // 5 miles maximum distance
     const types = ["grocery_or_supermarket", "supermarket"];
     const stores = [];
 
@@ -415,8 +472,8 @@ async function findNearbyGroceryStores(latitude, longitude) {
             place.geometry.location.lng
           );
 
-          // Only include stores within 20 miles
-          if (distance <= 20) {
+          // Only include stores within 5 miles (reduced from 20 miles)
+          if (distance <= maxDistance) {
             stores.push({
               id: place.place_id,
               place_id: place.place_id,
@@ -439,7 +496,7 @@ async function findNearbyGroceryStores(latitude, longitude) {
         index === self.findIndex((s) => s.place_id === store.place_id)
     );
 
-    return uniqueStores.sort((a, b) => a.distance - b.distance).slice(0, 20);
+    return uniqueStores.sort((a, b) => a.distance - b.distance).slice(0, 15); // Reduced from 20 to 15 stores
   } catch (error) {
     console.error("Error finding nearby stores:", error);
     return [];

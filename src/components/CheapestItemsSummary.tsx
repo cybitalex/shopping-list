@@ -33,6 +33,80 @@ interface CheapestItemsSummaryProps {
 const extractUnitInfo = (productName: string) => {
   const lowerName = productName.toLowerCase();
 
+  // Special case for fruits - check for specific fruit pricing patterns
+  const fruitNames = ['apple', 'banana', 'orange', 'grape', 'strawberry', 'blueberry', 'cherry', 'peach', 'pear', 'mango', 'pineapple', 'watermelon', 'cantaloupe', 'honeydew'];
+  const isFruit = fruitNames.some(fruit => lowerName.includes(fruit));
+
+  // Per pound indicators (highest priority for fruits)
+  if (lowerName.includes(" per lb") || lowerName.includes(" per pound") || lowerName.includes("/lb") || 
+      (isFruit && (lowerName.includes(" lb") || lowerName.includes(" pound")))) {
+    return {
+      text: "Per Pound",
+      amount: 1,
+      unit: "lb",
+      pricingType: "per pound",
+      description: "Price per pound"
+    };
+  }
+
+  // Individual fruit pricing
+  if (isFruit && (lowerName.includes(" each") || lowerName.includes("- each") || lowerName.includes(" per item") || 
+      lowerName.includes("individual") || lowerName.includes("single"))) {
+    return {
+      text: "Each",
+      amount: 1,
+      unit: "each",
+      pricingType: "individually",
+      description: "Price per individual fruit"
+    };
+  }
+
+  // Bunch pricing (especially for bananas, grapes)
+  if (lowerName.includes(" bunch") || (isFruit && lowerName.includes("bunch"))) {
+    return {
+      text: "Per Bunch",
+      amount: 1,
+      unit: "bunch",
+      pricingType: "per bunch",
+      description: "Price per bunch"
+    };
+  }
+
+  // Bag pricing with weight specification
+  if (lowerName.includes(" bag")) {
+    const bagMatch = lowerName.match(/(\d+(\.\d+)?)\s*(lb|pound|oz|ounce)?\s*bag/i);
+    if (bagMatch && bagMatch[1] && bagMatch[3]) {
+      const amount = parseFloat(bagMatch[1]);
+      const unit = bagMatch[3].toLowerCase();
+      const normalizedUnit = (unit === "pound" || unit === "lb") ? "lb" : 
+                             (unit === "ounce" || unit === "oz") ? "oz" : unit;
+      return {
+        text: `${amount} ${normalizedUnit} bag`,
+        amount: amount,
+        unit: `${normalizedUnit}`,
+        pricingType: "per bag",
+        description: `${amount} ${normalizedUnit} bag`
+      };
+    }
+    if (bagMatch && bagMatch[1]) {
+      const amount = parseFloat(bagMatch[1]);
+      return {
+        text: `${amount} item bag`,
+        amount: amount,
+        unit: "bag",
+        pricingType: "per bag",
+        description: `${amount} item bag`
+      };
+    }
+    return {
+      text: "Per Bag",
+      amount: 1,
+      unit: "bag",
+      pricingType: "per bag",
+      description: "Price per bag"
+    };
+  }
+
   // Weight-based units (pounds, ounces, grams)
   const weightMatch = lowerName.match(
     /(\d+(\.\d+)?)\s*(lb|pound|oz|ounce|g|gram|kg|kilogram)/i
@@ -48,11 +122,11 @@ const extractUnitInfo = (productName: string) => {
     else if (unit === "kilogram" || unit === "kg") unit = "kg";
 
     return {
-      text: `${amount} ${unit}`,
+      text: `${amount} ${unit} package`,
       amount: amount,
       unit: unit,
-      pricingType: "per unit",
-      description: `${amount} ${unit} package`,
+      pricingType: "per package",
+      description: `${amount} ${unit} package`
     };
   }
 
@@ -63,74 +137,59 @@ const extractUnitInfo = (productName: string) => {
     let unit = countMatch[2].toLowerCase();
 
     // Normalize units
-    if (unit === "count" || unit === "ct") unit = "ct";
-    else if (unit === "pack" || unit === "pk") unit = "pk";
-    else if (unit === "piece" || unit === "pc") unit = "pc";
+    if (unit === "count" || unit === "ct") unit = "count";
+    else if (unit === "pack" || unit === "pk") unit = "pack";
+    else if (unit === "piece" || unit === "pc") unit = "piece";
 
     return {
       text: `${amount} ${unit}`,
       amount: amount,
       unit: unit,
-      pricingType: "per unit",
-      description: `${amount} ${unit} package`,
+      pricingType: "per package",
+      description: `${amount} ${unit} package`
     };
   }
 
-  // Bags with weight specification
-  if (lowerName.includes(" bag")) {
-    const match = lowerName.match(/(\d+(\.\d+)?)\s*(lb|pound)?\s*bag/i);
-    if (match && match[1] && match[3]) {
-      const amount = parseFloat(match[1]);
-      const unit = match[3].toLowerCase();
-      return {
-        text: `${amount} ${unit} bag`,
-        amount: amount,
-        unit: `${unit} bag`,
-        pricingType: "per bag",
-        description: `${amount} ${unit} bag`,
-      };
-    }
-    if (match && match[1]) {
-      const amount = parseFloat(match[1]);
-      return {
-        text: `${amount} bag`,
-        amount: amount,
-        unit: "bag",
-        pricingType: "per bag",
-        description: `${amount} bag`,
-      };
-    }
+  // Items sold individually (general)
+  if (lowerName.includes(" each") || lowerName.includes("- each") || lowerName.includes(" per item")) {
     return {
-      text: "Per bag",
+      text: "Each",
       amount: 1,
-      unit: "bag",
-      pricingType: "per bag",
-      description: "Per bag",
+      unit: "each",
+      pricingType: "individually",
+      description: "Price per individual item"
     };
   }
 
-  // Per pound indicators
-  if (
-    lowerName.includes(" per lb") ||
-    lowerName.includes(" per pound") ||
-    lowerName.includes("/lb")
-  ) {
+  // Per ounce indicators
+  if (lowerName.includes(" per oz") || lowerName.includes(" per ounce") || lowerName.includes("/oz")) {
     return {
-      text: "Per lb",
+      text: "Per Ounce",
+      amount: 1,
+      unit: "oz",
+      pricingType: "per ounce",
+      description: "Price per ounce"
+    };
+  }
+
+  // If we couldn't detect a specific unit but it's a fruit, assume per pound (common for loose fruits)
+  if (isFruit) {
+    return {
+      text: "Per Pound (estimated)",
       amount: 1,
       unit: "lb",
       pricingType: "per pound",
-      description: "Price per pound",
+      description: "Likely priced per pound (common for loose fruits)"
     };
   }
 
   // If we couldn't detect a specific unit
   return {
-    text: "Unknown unit",
+    text: "Unit not specified",
     amount: null,
     unit: "unknown",
     pricingType: "unknown",
-    description: "Unit not specified",
+    description: "Pricing unit not clearly specified"
   };
 };
 
@@ -188,33 +247,57 @@ const CheapestItemsSummary: React.FC<CheapestItemsSummaryProps> = ({
   });
 
   return (
-    <Paper sx={{ p: 3, mb: 3 }}>
-      <Typography variant="h6" gutterBottom>
-        Cheapest Prices by Item
-      </Typography>
+    <Paper
+      sx={{ p: 3, mb: 3, border: "2px solid", borderColor: "success.main" }}
+    >
+      <Box sx={{ mb: 2 }}>
+        <Typography
+          variant="h5"
+          gutterBottom
+          sx={{ color: "success.main", fontWeight: "bold" }}
+        >
+          🏆 Best Deals Found
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          The cheapest price for each item on your list, showing exactly what
+          you're paying for and where to find it.
+        </Typography>
+      </Box>
       <TableContainer>
         <Table size="small">
           <TableHead>
             <TableRow>
               <TableCell>Item</TableCell>
               <TableCell>Cheapest Price</TableCell>
-              <TableCell>Pricing Type</TableCell>
-              <TableCell>Store(s)</TableCell>
+              <TableCell>Price Type</TableCell>
+              <TableCell>Product Details</TableCell>
+              <TableCell>Store(s) with Cheapest Price</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {summary.map((row) => (
               <TableRow key={row.name}>
-                <TableCell>{row.name}</TableCell>
+                <TableCell>
+                  <Typography variant="body2" sx={{ fontWeight: "medium" }}>
+                    {row.name}
+                  </Typography>
+                </TableCell>
                 <TableCell>
                   {typeof row.price === "number" ? (
                     <Box>
-                      <Typography variant="body2" sx={{ fontWeight: "bold" }}>
+                      <Typography
+                        variant="h6"
+                        sx={{ fontWeight: "bold", color: "success.main" }}
+                      >
                         ${(row.price as number).toFixed(2)}
                       </Typography>
-                      {row.unitInfo && row.unitInfo.amount && (
-                        <Typography variant="caption" color="text.secondary">
-                          {row.unitInfo.text}
+                      {row.unitInfo && row.unitInfo.pricingType && (
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ fontStyle: "italic" }}
+                        >
+                          {row.unitInfo.pricingType}
                         </Typography>
                       )}
                     </Box>
@@ -225,9 +308,34 @@ const CheapestItemsSummary: React.FC<CheapestItemsSummaryProps> = ({
                 <TableCell>
                   {row.unitInfo ? (
                     <Tooltip title={row.unitInfo.description}>
-                      <Typography variant="body2" color="text.secondary">
-                        {row.unitInfo.pricingType}
-                      </Typography>
+                      <Box>
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{ fontWeight: "bold" }}
+                        >
+                          {row.unitInfo.pricingType === "per pound"
+                            ? "Per Pound"
+                            : row.unitInfo.pricingType === "per bag"
+                            ? "Per Bag"
+                            : row.unitInfo.pricingType === "individually"
+                            ? "Each"
+                            : row.unitInfo.pricingType === "per package"
+                            ? "Per Package"
+                            : row.unitInfo.pricingType === "per container"
+                            ? "Per Container"
+                            : row.unitInfo.pricingType === "per bunch"
+                            ? "Per Bunch"
+                            : row.unitInfo.pricingType === "per ounce"
+                            ? "Per Ounce"
+                            : "Unknown"}
+                        </Typography>
+                        {row.unitInfo.text !== "Unknown unit" && (
+                          <Typography variant="caption" color="text.secondary">
+                            ({row.unitInfo.text})
+                          </Typography>
+                        )}
+                      </Box>
                     </Tooltip>
                   ) : (
                     <Typography variant="body2" color="text.secondary">
@@ -236,8 +344,40 @@ const CheapestItemsSummary: React.FC<CheapestItemsSummaryProps> = ({
                   )}
                 </TableCell>
                 <TableCell>
+                  {row.productName ? (
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: "medium" }}>
+                        {row.productName}
+                      </Typography>
+                      {row.unitInfo && row.unitInfo.text !== "Unknown unit" && (
+                        <Typography variant="caption" color="text.secondary">
+                          Size: {row.unitInfo.text}
+                        </Typography>
+                      )}
+                    </Box>
+                  ) : (
+                    <Typography variant="caption" color="text.secondary">
+                      No product details
+                    </Typography>
+                  )}
+                </TableCell>
+                <TableCell>
                   {row.stores.length > 0 ? (
-                    row.stores.join(", ")
+                    <Box>
+                      {row.stores.map((store, index) => (
+                        <Chip
+                          key={index}
+                          label={store}
+                          size="small"
+                          color="primary"
+                          sx={{
+                            mb: 0.5,
+                            mr: 0.5,
+                            fontWeight: "medium",
+                          }}
+                        />
+                      ))}
+                    </Box>
                   ) : (
                     <Chip label="No store" color="default" size="small" />
                   )}
