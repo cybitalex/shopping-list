@@ -7,11 +7,39 @@ set -e  # Exit on any error
 
 echo "🚀 Starting deployment for cheeply.duckdns.org..."
 
-# Check if .env file exists
-if [ ! -f ".env" ]; then
-    echo "❌ .env file not found! Please create it with your API keys."
+# Check if production .env file exists
+if [ ! -f ".env.production" ]; then
+    if [ -f ".env" ]; then
+        echo "📝 Creating production environment file..."
+        cp .env .env.production
+    else
+        echo "❌ .env file not found! Please create it with your API keys."
+        echo "📝 Copy .env.example to .env and fill in your API keys:"
+        echo "   cp .env.example .env"
+        exit 1
+    fi
+fi
+
+# Check for required environment variables
+echo "🔍 Checking environment variables..."
+source .env.production
+
+if [ -z "$GOOGLE_MAPS_API_KEY" ]; then
+    echo "❌ GOOGLE_MAPS_API_KEY is missing from .env file"
     exit 1
 fi
+
+if [ -z "$SERPER_API_KEY" ]; then
+    echo "❌ SERPER_API_KEY is missing from .env file"
+    exit 1
+fi
+
+if [ -z "$DUCKDNS_TOKEN" ]; then
+    echo "❌ DUCKDNS_TOKEN is missing from .env file"
+    exit 1
+fi
+
+echo "✅ Environment variables look good"
 
 # Check if Docker is running
 if ! docker info > /dev/null 2>&1; then
