@@ -153,11 +153,7 @@ app.get("/api/mapbox-token", (req, res) => {
   res.json({ token: process.env.MAPBOX_TOKEN });
 });
 
-// Serve static files from the dist directory in production
-if (process.env.NODE_ENV === "production") {
-  app.use(express.static(path.join(__dirname, "dist")));
-  console.log("Serving static files from:", path.join(__dirname, "dist"));
-}
+// Static files are served by Nginx in production, not by the backend
 
 const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
 
@@ -174,12 +170,7 @@ const openai = new OpenAI.OpenAIApi(
   })
 );
 
-// Serve the frontend for any other routes in production
-if (process.env.NODE_ENV === "production") {
-  app.get("*", (req, res) => {
-    res.sendFile(path.join(__dirname, "dist", "index.html"));
-  });
-}
+// Frontend routing is handled by Nginx in production
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
