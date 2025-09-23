@@ -179,11 +179,7 @@ app.get("/api/google-price", async (req, res) => {
   }
 });
 
-// Serve static files from the dist directory in production
-if (process.env.NODE_ENV === "production") {
-  app.use(express.static(join(__dirname, "dist")));
-  console.log("Serving static files from:", join(__dirname, "dist"));
-}
+// Static files are served by Nginx in production, not by the backend
 
 const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
 
@@ -605,12 +601,12 @@ app.post("/api/compare", async (req, res) => {
   }
 });
 
-// Serve the frontend for any other routes in production
-if (process.env.NODE_ENV === "production") {
-  app.get("*", (req, res) => {
-    res.sendFile(join(__dirname, "dist", "index.html"));
-  });
-}
+// Mapbox token endpoint
+app.get("/api/mapbox-token", (req, res) => {
+  res.json({ token: process.env.MAPBOX_TOKEN });
+});
+
+// Frontend routing is handled by Nginx in production
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
@@ -675,6 +671,3 @@ process.on("unhandledRejection", (reason, promise) => {
   // Don't exit the process, just log the error
 });
 
-app.get("/api/mapbox-token", (req, res) => {
-  res.json({ token: process.env.MAPBOX_TOKEN });
-});
