@@ -11,7 +11,7 @@ echo "Building and starting containers..."
 docker-compose up --build -d
 
 echo "Application is running in containers"
-echo "Frontend: http://localhost (production) or https://shopcheeply.duckdns.org"
+echo "Frontend: http://localhost (production) or https://cheeply.duckdns.org"
 echo "Backend API: http://localhost:3000/api/"
 
 # Show logs

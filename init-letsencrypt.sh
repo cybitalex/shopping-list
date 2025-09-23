@@ -12,11 +12,11 @@ if [ -d "certbot/conf/live" ]; then
 fi
 
 # Create temporary self-signed certificate
-mkdir -p certbot/conf/live/YOUR_DOMAIN
+mkdir -p certbot/conf/live/cheeply.duckdns.org
 openssl req -x509 -nodes -newkey rsa:2048 -days 1 \
-    -keyout certbot/conf/live/YOUR_DOMAIN/privkey.pem \
-    -out certbot/conf/live/YOUR_DOMAIN/fullchain.pem \
-    -subj "/CN=localhost"
+    -keyout certbot/conf/live/cheeply.duckdns.org/privkey.pem \
+    -out certbot/conf/live/cheeply.duckdns.org/fullchain.pem \
+    -subj "/CN=cheeply.duckdns.org"
 
 # Start nginx with temporary certificate
 docker-compose up -d frontend

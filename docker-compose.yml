@@ -61,7 +61,7 @@ services:
       - USE_GOOGLE_SEARCH=false
       - PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
       - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
-      - CORS_ORIGIN=https://shopcheeply.duckdns.org
+      - CORS_ORIGIN=https://cheeply.duckdns.org
     volumes:
       - ./:/app
       - /app/node_modules

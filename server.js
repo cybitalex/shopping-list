@@ -23,7 +23,7 @@ app.use(
   cors({
     origin:
       process.env.NODE_ENV === "production"
-        ? ["https://shopcheeply.duckdns.org"]
+        ? ["https://cheeply.duckdns.org", "http://cheeply.duckdns.org"]
         : [
             "http://localhost:5173",
             "http://localhost:3000",
@@ -44,7 +44,7 @@ app.use(
 app.use((req, res, next) => {
   const allowedOrigins =
     process.env.NODE_ENV === "production"
-      ? ["https://shopcheeply.duckdns.org"]
+      ? ["https://cheeply.duckdns.org", "http://cheeply.duckdns.org"]
       : [
           "http://localhost:5173",
           "http://localhost:3000",
