@@ -57,9 +57,21 @@ echo "Make sure cheeply.duckdns.org points to this IP address"
 echo "📁 Creating directories..."
 mkdir -p certbot/conf certbot/www certbot/logs screenshots
 
-# Step 3: Stop any existing containers
-echo "🛑 Stopping existing containers..."
-docker-compose down 2>/dev/null || true
+# Step 3: Clean up existing containers and port conflicts
+echo "🛑 Cleaning up existing deployment..."
+docker-compose down --remove-orphans 2>/dev/null || true
+
+# Stop any containers that might be using our ports
+echo "🔍 Checking for port conflicts..."
+docker ps --format "table {{.Names}}\t{{.Ports}}" | grep -E ":80->|:443->" || echo "No port conflicts detected"
+
+# Stop specific containers that might conflict
+docker stop nginx-proxy letsencrypt app-gateway shopping-list-app shopping-list-api 2>/dev/null || true
+
+# Remove old SSL certificates for the old domain
+echo "🗑️ Cleaning old SSL certificates..."
+rm -rf certbot/conf/live/shopcheeply.duckdns.org 2>/dev/null || true
+rm -rf certbot/conf/renewal/shopcheeply.duckdns.org.conf 2>/dev/null || true
 
 # Step 4: Build the application
 echo "🔨 Building application..."
