@@ -25,7 +25,7 @@ import {
   TrendingUp as TrendingUpIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
-  Cache as CacheIcon,
+  Storage as CacheIcon,
   Refresh as RefreshIcon,
   Delete as DeleteIcon,
   Insights as InsightsIcon,
