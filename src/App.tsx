@@ -313,8 +313,10 @@ function App() {
       return;
     }
 
-    // Clear previous results
-    setStores([]);
+    // Only clear stores if we won't be using cache, to prevent UI flicker
+    if (!useStoreCaching || !currentLocation || !storeCacheService.getCachedStores(currentLocation)) {
+      setStores([]);
+    }
     setSelectedStore(null);
     setCheapestStore(null);
     setShowCheapestSummary(false); // Hide summary when clearing results
