@@ -92,98 +92,24 @@ app.get("/api/google-price", async (req, res) => {
       });
     }
 
-    console.log(`🔍 Price search for: ${item}${store ? ` at ${store}` : ""}`);
-
-    // Step 1: Try SerpAPI first (preferred method)
-    if (SERP_API_KEY && store) {
-      console.log(`📡 Trying SerpAPI for ${item} at ${store}`);
-      try {
-        const userLocation =
-          lat && lng ? { lat: parseFloat(lat), lng: parseFloat(lng) } : null;
-        const serpResult = await searchProductsWithSerpAPI(
-          item,
-          store,
-          userLocation
-        );
-
-        if (serpResult && serpResult.price) {
-          console.log(
-            `✅ SerpAPI success: $${serpResult.price} for ${item} at ${store}`
-          );
-          clearTimeout(timeout);
-          return res.json({
-            success: true,
-            price: serpResult.price,
-            productName: serpResult.title || item,
-            store: serpResult.store || store,
-            fullStoreName: serpResult.store || store,
-            url: serpResult.link || "",
-            source: "serpapi",
-            isEstimate: false,
-            returnPolicy: serpResult.returnPolicy,
-            rating: serpResult.rating,
-            reviewCount: serpResult.reviewCount,
-          });
-        }
-      } catch (error) {
-        console.log(
-          `⚠️ SerpAPI failed for ${item} at ${store}: ${error.message}`
-        );
-
-        // If SerpAPI quota is exceeded, disable it for this session
-        if (
-          error.message.includes("run out of searches") ||
-          error.message.includes("quota exceeded")
-        ) {
-          console.log("🚫 SerpAPI quota exceeded - disabling for this session");
-          SERP_API_KEY = null; // Disable SerpAPI for this session
-        }
-      }
-    } else if (!store) {
-      console.log(`⏭️ Skipping SerpAPI - no specific store provided`);
-    } else {
-      console.log(`⏭️ Skipping SerpAPI - no API key configured`);
-    }
-
-    // Step 2: Try Scale Serp API as second option
-    if (SCALE_SERP_API_KEY && store) {
-      console.log(`📡 Trying Scale Serp API for ${item} at ${store}`);
-      try {
-        const userLocation =
-          lat && lng ? { lat: parseFloat(lat), lng: parseFloat(lng) } : null;
-        const scaleSerpResult = await searchProductsWithScaleSerp(
-          item,
-          store,
-          userLocation
-        );
-
-        if (scaleSerpResult && scaleSerpResult.price) {
-          console.log(
-            `✅ Scale Serp success: $${scaleSerpResult.price} for ${item} at ${store}`
-          );
-          clearTimeout(timeout);
-          return res.json({
-            success: true,
-            price: scaleSerpResult.price,
-            productName: scaleSerpResult.name || item,
-            store: scaleSerpResult.store || store,
-            fullStoreName: scaleSerpResult.store || store,
-            url: scaleSerpResult.link || "",
-            source: "scaleserp",
-            isEstimate: false,
-            rating: scaleSerpResult.rating,
-            reviewCount: scaleSerpResult.reviews,
-          });
-        }
-      } catch (error) {
-        console.log(
-          `⚠️ Scale Serp failed for ${item} at ${store}: ${error.message}`
-        );
-      }
-    } else if (!store) {
-      console.log(`⏭️ Skipping Scale Serp - no specific store provided`);
-    } else {
-      console.log(`⏭️ Skipping Scale Serp - no API key configured`);
+    // Use unified price search function with full API priority chain
+    const userLocation = lat && lng ? { lat: parseFloat(lat), lng: parseFloat(lng) } : null;
+    const priceResult = await searchPriceWithFallback(item, store, userLocation);
+    
+    if (priceResult.success) {
+      clearTimeout(timeout);
+      return res.json({
+        success: true,
+        price: priceResult.price,
+        productName: priceResult.productName,
+        store: priceResult.store,
+        fullStoreName: priceResult.store,
+        url: "",
+        source: priceResult.source,
+        isEstimate: false,
+        rating: priceResult.rating,
+        reviewCount: priceResult.reviews,
+      });
     }
 
     // Step 3: Fall back to Playwright scraper only if both APIs failed/unavailable
@@ -555,16 +481,24 @@ async function searchProductsWithScaleSerp(
 
 // Unified price search function with full API priority chain
 async function searchPriceWithFallback(itemName, storeName, userLocation) {
-  console.log(`🔍 Price search for: ${itemName}${storeName ? ` at ${storeName}` : ""}`);
+  console.log(
+    `🔍 Price search for: ${itemName}${storeName ? ` at ${storeName}` : ""}`
+  );
 
   // Step 1: Try SerpAPI first (preferred method)
   if (SERP_API_KEY && storeName) {
     console.log(`📡 Trying SerpAPI for ${itemName} at ${storeName}`);
     try {
-      const serpResult = await searchProductsWithSerpAPI(itemName, storeName, userLocation);
-      
+      const serpResult = await searchProductsWithSerpAPI(
+        itemName,
+        storeName,
+        userLocation
+      );
+
       if (serpResult && serpResult.price) {
-        console.log(`✅ SerpAPI success: $${serpResult.price} for ${itemName} at ${storeName}`);
+        console.log(
+          `✅ SerpAPI success: $${serpResult.price} for ${itemName} at ${storeName}`
+        );
         return {
           success: true,
           price: serpResult.price,
@@ -572,15 +506,19 @@ async function searchPriceWithFallback(itemName, storeName, userLocation) {
           store: serpResult.store || storeName,
           source: "serpapi",
           rating: serpResult.rating,
-          reviews: serpResult.reviews
+          reviews: serpResult.reviews,
         };
       }
     } catch (error) {
-      console.log(`⚠️ SerpAPI failed for ${itemName} at ${storeName}: ${error.message}`);
-      
+      console.log(
+        `⚠️ SerpAPI failed for ${itemName} at ${storeName}: ${error.message}`
+      );
+
       // If SerpAPI quota is exceeded, disable it for this session
-      if (error.message.includes("run out of searches") || 
-          error.message.includes("quota exceeded")) {
+      if (
+        error.message.includes("run out of searches") ||
+        error.message.includes("quota exceeded")
+      ) {
         console.log("🚫 SerpAPI quota exceeded - disabling for this session");
         SERP_API_KEY = null; // Disable SerpAPI for this session
       }
@@ -591,10 +529,16 @@ async function searchPriceWithFallback(itemName, storeName, userLocation) {
   if (SCALE_SERP_API_KEY && storeName) {
     console.log(`📡 Trying Scale Serp API for ${itemName} at ${storeName}`);
     try {
-      const scaleSerpResult = await searchProductsWithScaleSerp(itemName, storeName, userLocation);
-      
+      const scaleSerpResult = await searchProductsWithScaleSerp(
+        itemName,
+        storeName,
+        userLocation
+      );
+
       if (scaleSerpResult && scaleSerpResult.price) {
-        console.log(`✅ Scale Serp success: $${scaleSerpResult.price} for ${itemName} at ${storeName}`);
+        console.log(
+          `✅ Scale Serp success: $${scaleSerpResult.price} for ${itemName} at ${storeName}`
+        );
         return {
           success: true,
           price: scaleSerpResult.price,
@@ -602,11 +546,13 @@ async function searchPriceWithFallback(itemName, storeName, userLocation) {
           store: scaleSerpResult.store || storeName,
           source: "scaleserp",
           rating: scaleSerpResult.rating,
-          reviews: scaleSerpResult.reviews
+          reviews: scaleSerpResult.reviews,
         };
       }
     } catch (error) {
-      console.log(`⚠️ Scale Serp failed for ${itemName} at ${storeName}: ${error.message}`);
+      console.log(
+        `⚠️ Scale Serp failed for ${itemName} at ${storeName}: ${error.message}`
+      );
     }
   }
 
@@ -615,7 +561,7 @@ async function searchPriceWithFallback(itemName, storeName, userLocation) {
   return {
     success: false,
     error: "No price data available",
-    store: storeName || ""
+    store: storeName || "",
   };
 }
 
@@ -689,8 +635,12 @@ app.get("/api/stores", async (req, res) => {
             storeItems.push({
               name: item,
               productName: priceResult.productName || item,
-              price: typeof priceResult.price === 'number' ? priceResult.price : 
-                     parseFloat(String(priceResult.price || "0").replace(/[^0-9.]/g, "")),
+              price:
+                typeof priceResult.price === "number"
+                  ? priceResult.price
+                  : parseFloat(
+                      String(priceResult.price || "0").replace(/[^0-9.]/g, "")
+                    ),
               lastUpdated: new Date().toISOString(),
               isGenericName: priceResult.productName === item,
               productDetail: priceResult.source,
