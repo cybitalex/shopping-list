@@ -114,6 +114,13 @@ app.get("/api/google-price", async (req, res) => {
         console.log(
           `⚠️ SerpAPI failed for ${item} at ${store}: ${error.message}`
         );
+        
+        // If SerpAPI quota is exceeded, disable it for this session
+        if (error.message.includes("run out of searches") || 
+            error.message.includes("quota exceeded")) {
+          console.log("🚫 SerpAPI quota exceeded - disabling for this session");
+          SERP_API_KEY = null; // Disable SerpAPI for this session
+        }
       }
     } else if (!store) {
       console.log(`⏭️ Skipping SerpAPI - no specific store provided`);
@@ -299,6 +306,12 @@ async function searchProductsWithSerpAPI(
         "User-Agent": "ShopCheaply/1.0",
       },
     });
+
+    // Check for SerpAPI errors (like quota exceeded)
+    if (response.data.error) {
+      console.error(`SerpAPI error: ${response.data.error}`);
+      throw new Error(`SerpAPI error: ${response.data.error}`);
+    }
 
     if (
       !response.data.shopping_results ||
