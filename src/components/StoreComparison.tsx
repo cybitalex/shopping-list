@@ -554,79 +554,79 @@ const StoreComparison: React.FC<StoreComparisonProps> = ({
     }
   }, [items, stores]);
 
-  // Trigger batch price processing when stores and items are available
-  useEffect(() => {
-    const shouldTriggerBatchProcessing =
-      items.length > 0 &&
-      stores.length > 0 &&
-      useFastBatchProcessing &&
-      !loading;
+  // Automatic batch processing disabled - only process on manual refresh button click
+  // useEffect(() => {
+  //   const shouldTriggerBatchProcessing =
+  //     items.length > 0 &&
+  //     stores.length > 0 &&
+  //     useFastBatchProcessing &&
+  //     !loading;
 
-    if (shouldTriggerBatchProcessing) {
-      console.log(
-        `🚀 Triggering batch price processing for ${items.length} items at ${stores.length} stores`
-      );
+  //   if (shouldTriggerBatchProcessing) {
+  //     console.log(
+  //       `🚀 Triggering batch price processing for ${items.length} items at ${stores.length} stores`
+  //     );
 
-      const handleBatchProcessing = async () => {
-        setLoading(true);
-        setBatchProcessingStatus(
-          `Processing ${items.length} items at ${stores.length} stores...`
-        );
+  //     const handleBatchProcessing = async () => {
+  //       setLoading(true);
+  //       setBatchProcessingStatus(
+  //         `Processing ${items.length} items at ${stores.length} stores...`
+  //       );
 
-        try {
-          const itemNames = items.map((item) => item.name);
-          const batchResults = await batchProcessPrices(itemNames, stores);
+  //       try {
+  //         const itemNames = items.map((item) => item.name);
+  //         const batchResults = await batchProcessPrices(itemNames, stores);
 
-          // Convert batch results to the format expected by the component
-          const newPrices: Record<string, Record<string, PriceResult>> = {};
+  //         // Convert batch results to the format expected by the component
+  //         const newPrices: Record<string, Record<string, PriceResult>> = {};
 
-          batchResults.forEach((storeMap, itemName) => {
-            if (!newPrices[itemName]) {
-              newPrices[itemName] = {};
-            }
-            storeMap.forEach((result, storeName) => {
-              newPrices[itemName][storeName] = result;
-            });
-          });
+  //         batchResults.forEach((storeMap, itemName) => {
+  //           if (!newPrices[itemName]) {
+  //             newPrices[itemName] = {};
+  //           }
+  //           storeMap.forEach((result, storeName) => {
+  //             newPrices[itemName][storeName] = result;
+  //           });
+  //         });
 
-          setPrices(newPrices);
+  //         setPrices(newPrices);
 
-          // Update stores with the fetched prices
-          const updatedStores = stores.map((store) => ({
-            ...store,
-            items: itemNames.map((itemName) => {
-              const storePrice = newPrices[itemName]?.[store.name];
-              return {
-                name: itemName,
-                price: storePrice?.price || null,
-                lastUpdated: storePrice ? new Date().toISOString() : null,
-                productName: storePrice?.productName,
-                isGenericName: !storePrice?.productName,
-                productDetail: storePrice?.source || null,
-              };
-            }),
-          }));
+  //         // Update stores with the fetched prices
+  //         const updatedStores = stores.map((store) => ({
+  //           ...store,
+  //           items: itemNames.map((itemName) => {
+  //             const storePrice = newPrices[itemName]?.[store.name];
+  //             return {
+  //               name: itemName,
+  //               price: storePrice?.price || null,
+  //               lastUpdated: storePrice ? new Date().toISOString() : null,
+  //               productName: storePrice?.productName,
+  //               isGenericName: !storePrice?.productName,
+  //               productDetail: storePrice?.source || null,
+  //             };
+  //           }),
+  //         }));
 
-          setStores(updatedStores);
-          setBatchProcessingStatus("");
+  //         setStores(updatedStores);
+  //         setBatchProcessingStatus("");
 
-          console.log(
-            `✅ Batch processing completed for ${items.length} items`
-          );
-        } catch (error) {
-          console.error("Batch processing failed:", error);
-          setBatchProcessingStatus("Error processing prices");
-          onError("Failed to fetch prices");
-        } finally {
-          setLoading(false);
-        }
-      };
+  //         console.log(
+  //           `✅ Batch processing completed for ${items.length} items`
+  //         );
+  //       } catch (error) {
+  //         console.error("Batch processing failed:", error);
+  //         setBatchProcessingStatus("Error processing prices");
+  //         onError("Failed to fetch prices");
+  //       } finally {
+  //         setLoading(false);
+  //       }
+  //     };
 
-      // Debounce the batch processing to avoid rapid-fire requests
-      const timeoutId = setTimeout(handleBatchProcessing, 1000);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [items, stores, useFastBatchProcessing, loading]);
+  //     // Debounce the batch processing to avoid rapid-fire requests
+  //     const timeoutId = setTimeout(handleBatchProcessing, 1000);
+  //     return () => clearTimeout(timeoutId);
+  //   }
+  // }, [items, stores, useFastBatchProcessing, loading]);
 
   // Fetch Mapbox token from backend
   useEffect(() => {
@@ -1155,7 +1155,11 @@ const StoreComparison: React.FC<StoreComparisonProps> = ({
                 sx={{ mr: 1, color: "text.secondary", fontSize: 20 }}
               />
               <Typography variant="body2" color="text.secondary">
-                📏 {typeof selectedStore.distance === 'number' ? selectedStore.distance.toFixed(1) : 'Unknown'} miles away
+                📏{" "}
+                {typeof selectedStore.distance === "number"
+                  ? selectedStore.distance.toFixed(1)
+                  : "Unknown"}{" "}
+                miles away
               </Typography>
             </Box>
             {selectedStore.rating && (
@@ -1314,7 +1318,10 @@ const StoreComparison: React.FC<StoreComparisonProps> = ({
                               color={isBestPrice ? "success.main" : "inherit"}
                               fontWeight={isBestPrice ? "bold" : "normal"}
                             >
-                              ${typeof item.price === 'number' ? item.price.toFixed(2) : 'N/A'}
+                              $
+                              {typeof item.price === "number"
+                                ? item.price.toFixed(2)
+                                : "N/A"}
                             </Typography>
                           ) : (
                             "—"
@@ -1330,7 +1337,11 @@ const StoreComparison: React.FC<StoreComparisonProps> = ({
                                 color="text.secondary"
                                 sx={{ fontWeight: "medium" }}
                               >
-                                ${typeof unitPrice === 'number' ? unitPrice.toFixed(2) : 'N/A'}/{unitInfo.unit}
+                                $
+                                {typeof unitPrice === "number"
+                                  ? unitPrice.toFixed(2)
+                                  : "N/A"}
+                                /{unitInfo.unit}
                               </Typography>
                             </Tooltip>
                           ) : (
@@ -1552,7 +1563,8 @@ const StoreComparison: React.FC<StoreComparisonProps> = ({
                       <TableCell>
                         <Tooltip
                           title={`${
-                            storeDistance !== null && typeof storeDistance === 'number'
+                            storeDistance !== null &&
+                            typeof storeDistance === "number"
                               ? storeDistance.toFixed(1)
                               : "Unknown"
                           } miles from your location`}
@@ -1563,7 +1575,8 @@ const StoreComparison: React.FC<StoreComparisonProps> = ({
                             variant="body2"
                             sx={{ cursor: "pointer" }}
                           >
-                            {storeDistance !== null && typeof storeDistance === 'number'
+                            {storeDistance !== null &&
+                            typeof storeDistance === "number"
                               ? `${storeDistance.toFixed(1)} mi`
                               : "Unknown distance"}
                           </Typography>
@@ -1591,7 +1604,10 @@ const StoreComparison: React.FC<StoreComparisonProps> = ({
                                 : "normal"
                             }
                           >
-                            ${typeof cheapestItem.price === 'number' ? cheapestItem.price.toFixed(2) : 'N/A'}
+                            $
+                            {typeof cheapestItem.price === "number"
+                              ? cheapestItem.price.toFixed(2)
+                              : "N/A"}
                             {findCheapestStoreForItem(cheapestItem.name) ===
                               store.name && (
                               <Typography

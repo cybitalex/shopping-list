@@ -110,29 +110,31 @@ function App() {
     initializeApp();
   }, []);
 
-  // Re-search for prices when items change and we have stores (cached or fresh)
-  useEffect(() => {
-    if (items.length > 0 && stores.length > 0 && currentLocation) {
-      console.log(`🔄 Items changed - triggering fresh price search for ${items.length} items`);
-      const itemNames = items.map((item) => item.name);
-      
-      // Update stores to match current items with null prices
-      const updatedStores = stores.map(store => ({
-        ...store,
-        items: itemNames.map(itemName => ({
-          name: itemName,
-          price: null,
-          lastUpdated: null,
-          productName: undefined,
-          isGenericName: true,
-          productDetail: null
-        }))
-      }));
-      
-      setStores(updatedStores);
-      setShowCheapestSummary(false); // Hide summary until new prices are fetched
-    }
-  }, [items]); // Only depend on items, not stores to avoid infinite loops
+  // Automatic price refresh disabled - only refresh on manual button click
+  // useEffect(() => {
+  //   if (items.length > 0 && stores.length > 0 && currentLocation) {
+  //     console.log(
+  //       `🔄 Items changed - triggering fresh price search for ${items.length} items`
+  //     );
+  //     const itemNames = items.map((item) => item.name);
+
+  //     // Update stores to match current items with null prices
+  //     const updatedStores = stores.map((store) => ({
+  //       ...store,
+  //       items: itemNames.map((itemName) => ({
+  //         name: itemName,
+  //         price: null,
+  //         lastUpdated: null,
+  //         productName: undefined,
+  //         isGenericName: true,
+  //         productDetail: null,
+  //       })),
+  //     }));
+
+  //     setStores(updatedStores);
+  //     setShowCheapestSummary(false); // Hide summary until new prices are fetched
+  //   }
+  // }, [items]); // Only depend on items, not stores to avoid infinite loops
 
   const getCurrentLocation = async () => {
     setIsLocatingStores(true);
@@ -254,26 +256,30 @@ function App() {
     setSelectedStore(store);
     if (store) {
       setCheapestStore(store);
-      
+
       // Track user behavior for ML if location is available
       if (currentLocation && items.length > 0) {
         // For each item, track if this store was the cheapest option
-        items.forEach(item => {
+        items.forEach((item) => {
           const itemInStore = store.items?.find(
-            storeItem => storeItem.name.toLowerCase() === item.name.toLowerCase()
+            (storeItem) =>
+              storeItem.name.toLowerCase() === item.name.toLowerCase()
           );
-          
+
           if (itemInStore && itemInStore.price !== null) {
             // Check if this was the cheapest option
-            const wasCheapest = stores.every(otherStore => {
+            const wasCheapest = stores.every((otherStore) => {
               const itemInOtherStore = otherStore.items?.find(
-                otherItem => otherItem.name.toLowerCase() === item.name.toLowerCase()
+                (otherItem) =>
+                  otherItem.name.toLowerCase() === item.name.toLowerCase()
               );
-              return !itemInOtherStore || 
-                     itemInOtherStore.price === null || 
-                     itemInStore.price! <= itemInOtherStore.price!;
+              return (
+                !itemInOtherStore ||
+                itemInOtherStore.price === null ||
+                itemInStore.price! <= itemInOtherStore.price!
+              );
             });
-            
+
             mlRecommendationService.trackUserChoice(
               item,
               store as any,
@@ -359,8 +365,10 @@ function App() {
       if (useStoreCaching) {
         const cachedStores = storeCacheService.getCachedStores(location);
         if (cachedStores && cachedStores.length > 0) {
-          console.log(`🚀 Using ${cachedStores.length} cached stores - searching for current items!`);
-          
+          console.log(
+            `🚀 Using ${cachedStores.length} cached stores - searching for current items!`
+          );
+
           // Process cached stores for our app, but reset items to current shopping list
           const processedStores = cachedStores.map((store: any) => ({
             ...store,
@@ -370,34 +378,37 @@ function App() {
               store.id ||
               store.name.toLowerCase().replace(/[^a-z0-9]/g, "-"),
             // Reset items to current shopping list with null prices
-            items: searchItems.map(itemName => ({
+            items: searchItems.map((itemName) => ({
               name: itemName,
               price: null,
               lastUpdated: null,
               productName: undefined,
               isGenericName: true,
-              productDetail: null
+              productDetail: null,
             })),
           }));
 
           setStores(processedStores);
           setSelectedStore(null);
           setShowCheapestSummary(false); // Don't show summary until prices are fetched
-          
+
           // Generate ML recommendations
           if (items.length > 0) {
-            const recommendations = mlRecommendationService.getStoreRecommendations(
-              items,
-              cachedStores,
-              location
-            );
+            const recommendations =
+              mlRecommendationService.getStoreRecommendations(
+                items,
+                cachedStores,
+                location
+              );
             setStoreRecommendations(recommendations);
           }
-          
+
           setIsLocatingStores(false);
           // Don't return here - continue to fetch fresh prices for current items
-          console.log(`🔍 Now fetching fresh prices for ${searchItems.length} items at cached stores...`);
-          
+          console.log(
+            `🔍 Now fetching fresh prices for ${searchItems.length} items at cached stores...`
+          );
+
           // Skip the API call since we're using cached stores, but let StoreComparison handle price fetching
           return;
         }
@@ -407,14 +418,12 @@ function App() {
       setStores([]);
 
       // Add a timestamp to prevent browser caching (but we want our custom cache)
-      const timestamp = useStoreCaching ? '' : `&_t=${Date.now()}`;
+      const timestamp = useStoreCaching ? "" : `&_t=${Date.now()}`;
 
       const storeResponse = await fetch(
         `/api/stores?latitude=${location.lat}&longitude=${
           location.lng
-        }&items=${encodeURIComponent(
-          JSON.stringify(searchItems)
-        )}${timestamp}`
+        }&items=${encodeURIComponent(JSON.stringify(searchItems))}${timestamp}`
       );
 
       if (!storeResponse.ok) {
@@ -451,7 +460,7 @@ function App() {
       setStores(processedStores);
       setSelectedStore(null);
       setShowCheapestSummary(true); // Show summary when we have final results
-      
+
       // Generate ML recommendations
       if (items.length > 0) {
         const recommendations = mlRecommendationService.getStoreRecommendations(
@@ -509,7 +518,7 @@ function App() {
             onToggleCaching={handleToggleCaching}
             onRefreshCache={handleRefreshCache}
           />
-          
+
           {/* Cheapest Items Summary */}
           <CheapestItemsSummary
             items={items}
