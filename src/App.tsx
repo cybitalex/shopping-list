@@ -27,6 +27,9 @@ import type { Store as BaseStore } from "./types/store";
 import { findNearbyStores } from "./services/places";
 import { loadGoogleMaps } from "./utils/googleMaps";
 import CheapestItemsSummary from "./components/CheapestItemsSummary";
+import MLRecommendations from "./components/MLRecommendations";
+import { storeCacheService } from "./services/storeCache";
+import { mlRecommendationService } from "./services/mlRecommendations";
 
 interface GooglePlacesStore {
   place_id: string;
@@ -90,6 +93,8 @@ function App() {
   );
   const [locationRequested, setLocationRequested] = useState(false);
   const [showCheapestSummary, setShowCheapestSummary] = useState(false);
+  const [storeRecommendations, setStoreRecommendations] = useState<any[]>([]);
+  const [useStoreCaching, setUseStoreCaching] = useState(true);
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -225,6 +230,36 @@ function App() {
     setSelectedStore(store);
     if (store) {
       setCheapestStore(store);
+      
+      // Track user behavior for ML if location is available
+      if (currentLocation && items.length > 0) {
+        // For each item, track if this store was the cheapest option
+        items.forEach(item => {
+          const itemInStore = store.items?.find(
+            storeItem => storeItem.name.toLowerCase() === item.name.toLowerCase()
+          );
+          
+          if (itemInStore && itemInStore.price !== null) {
+            // Check if this was the cheapest option
+            const wasCheapest = stores.every(otherStore => {
+              const itemInOtherStore = otherStore.items?.find(
+                otherItem => otherItem.name.toLowerCase() === item.name.toLowerCase()
+              );
+              return !itemInOtherStore || 
+                     itemInOtherStore.price === null || 
+                     itemInStore.price! <= itemInOtherStore.price!;
+            });
+            
+            mlRecommendationService.trackUserChoice(
+              item,
+              store as any,
+              itemInStore.price,
+              currentLocation,
+              wasCheapest
+            );
+          }
+        });
+      }
     }
   };
 
@@ -296,18 +331,54 @@ function App() {
     setShowCheapestSummary(false); // Hide summary while loading
 
     try {
+      // Check cache first if caching is enabled
+      if (useStoreCaching) {
+        const cachedStores = storeCacheService.getCachedStores(location);
+        if (cachedStores && cachedStores.length > 0) {
+          console.log(`🚀 Using ${cachedStores.length} cached stores - much faster!`);
+          
+          // Process cached stores for our app
+          const processedStores = cachedStores.map((store: any) => ({
+            ...store,
+            store: store.name,
+            place_id:
+              store.place_id ||
+              store.id ||
+              store.name.toLowerCase().replace(/[^a-z0-9]/g, "-"),
+            items: store.items || [],
+          }));
+
+          setStores(processedStores);
+          setSelectedStore(null);
+          setShowCheapestSummary(true);
+          
+          // Generate ML recommendations
+          if (items.length > 0) {
+            const recommendations = mlRecommendationService.getStoreRecommendations(
+              items,
+              cachedStores,
+              location
+            );
+            setStoreRecommendations(recommendations);
+          }
+          
+          setIsLocatingStores(false);
+          return; // Exit early with cached data
+        }
+      }
+
       // Clear any existing stores first to ensure we only display freshly fetched ones
       setStores([]);
 
-      // Add a timestamp to prevent caching
-      const timestamp = Date.now();
+      // Add a timestamp to prevent browser caching (but we want our custom cache)
+      const timestamp = useStoreCaching ? '' : `&_t=${Date.now()}`;
 
       const storeResponse = await fetch(
         `/api/stores?latitude=${location.lat}&longitude=${
           location.lng
         }&items=${encodeURIComponent(
           JSON.stringify(searchItems)
-        )}&_t=${timestamp}`
+        )}${timestamp}`
       );
 
       if (!storeResponse.ok) {
@@ -324,6 +395,11 @@ function App() {
         `Found ${data.stores.length} stores at coordinates ${location.lat}, ${location.lng}`
       );
 
+      // Cache the stores if caching is enabled
+      if (useStoreCaching) {
+        storeCacheService.cacheStores(data.stores, location);
+      }
+
       // Process and format stores for our app
       const processedStores = data.stores.map((store: any) => ({
         ...store,
@@ -339,6 +415,16 @@ function App() {
       setStores(processedStores);
       setSelectedStore(null);
       setShowCheapestSummary(true); // Show summary when we have final results
+      
+      // Generate ML recommendations
+      if (items.length > 0) {
+        const recommendations = mlRecommendationService.getStoreRecommendations(
+          items,
+          data.stores,
+          location
+        );
+        setStoreRecommendations(recommendations);
+      }
     } catch (error) {
       console.error("Error finding nearby stores:", error);
       setError(
@@ -351,6 +437,26 @@ function App() {
     }
   };
 
+  const handleRefreshCache = () => {
+    if (currentLocation) {
+      // Invalidate cache for current location and force refresh
+      storeCacheService.invalidateLocation(currentLocation);
+      // Get current items for search
+      const itemNames = items.map((item) => item.name);
+      if (itemNames.length > 0) {
+        searchStoresWithItems(currentLocation, itemNames);
+      }
+    }
+  };
+
+  const handleToggleCaching = (enabled: boolean) => {
+    setUseStoreCaching(enabled);
+    if (!enabled) {
+      // Clear cache when disabling
+      storeCacheService.clearCache();
+    }
+  };
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -360,6 +466,14 @@ function App() {
         <Header />
 
         <Container maxWidth="lg" sx={{ flex: 1, mt: 2, py: 4 }}>
+          {/* ML Recommendations */}
+          <MLRecommendations
+            recommendations={storeRecommendations}
+            useStoreCaching={useStoreCaching}
+            onToggleCaching={handleToggleCaching}
+            onRefreshCache={handleRefreshCache}
+          />
+          
           {/* Cheapest Items Summary */}
           <CheapestItemsSummary
             items={items}

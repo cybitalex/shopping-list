@@ -434,6 +434,13 @@ app.get("/api/stores", async (req, res) => {
     res.json({
       success: true,
       stores: storesWithPrices,
+      metadata: {
+        searchLocation: { lat: parseFloat(latitude), lng: parseFloat(longitude) },
+        timestamp: new Date().toISOString(),
+        cacheFor: 30 * 60 * 1000, // 30 minutes in milliseconds
+        itemCount: searchItems.length,
+        storeCount: storesWithPrices.length
+      }
     });
   } catch (error) {
     console.error("Error in /api/stores:", error);
@@ -452,6 +459,14 @@ async function findNearbyGroceryStores(latitude, longitude) {
     const types = ["grocery_or_supermarket", "supermarket"];
     const stores = [];
 
+    // Gas station keywords to filter out
+    const gasStationKeywords = [
+      'shell', 'exxon', 'mobil', 'chevron', 'bp', 'conoco', 'texaco', 'citgo', 
+      'sunoco', 'gulf', 'marathon', 'valero', 'arco', 'speedway', 'wawa', 
+      'sheetz', 'circle k', 'pilot', 'flying j', 'truck stop', 'gas station',
+      'fuel', 'petrol', 'amoco', 'phillips 66', 'sinclair'
+    ];
+
     for (const type of types) {
       const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${latitude},${longitude}&radius=${radius}&type=${type}&key=${GOOGLE_MAPS_API_KEY}`;
 
@@ -460,6 +475,26 @@ async function findNearbyGroceryStores(latitude, longitude) {
 
       if (data.status === "OK" && data.results) {
         data.results.forEach((place) => {
+          // Filter out gas stations
+          if (place.name) {
+            const placeName = place.name.toLowerCase();
+            const isGasStation = gasStationKeywords.some(keyword => 
+              placeName.includes(keyword)
+            );
+            
+            // Also check place types for gas station indicators
+            const hasGasStationType = place.types && place.types.some(type => 
+              type.includes('gas_station') || 
+              type.includes('fuel') || 
+              type.includes('petrol')
+            );
+            
+            if (isGasStation || hasGasStationType) {
+              console.log(`🚫 Filtered out gas station: ${place.name}`);
+              return; // Skip this place
+            }
+          }
+
           // Calculate distance from user location
           const distance = calculateDistance(
             latitude,
