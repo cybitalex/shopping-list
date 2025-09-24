@@ -312,57 +312,56 @@ const MLRecommendations: React.FC<MLRecommendationsProps> = ({
                   />
                 </ListItemIcon>
                 <ListItemText
-                  primary={
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                      <Typography variant="body1" sx={{ fontWeight: "medium" }}>
-                        {rec.store.name}
-                      </Typography>
-                      <Chip
-                        label={`${(rec.score * 100).toFixed(0)}% match`}
-                        size="small"
-                        variant="outlined"
-                      />
-                      <Chip
-                        label={rec.recommendationType}
-                        size="small"
-                        color={
-                          rec.recommendationType === "value"
-                            ? "success"
-                            : rec.recommendationType === "convenience"
-                            ? "info"
-                            : rec.recommendationType === "loyalty"
-                            ? "secondary"
-                            : "primary"
-                        }
-                        variant="outlined"
-                      />
-                      <Chip
-                        label={`${rec.confidenceLevel} confidence`}
-                        size="small"
-                        color={
-                          rec.confidenceLevel === "high"
-                            ? "success"
-                            : rec.confidenceLevel === "medium"
-                            ? "warning"
-                            : "default"
-                        }
-                        variant="outlined"
-                      />
-                    </Box>
-                  }
+                  primary={rec.store.name}
                   secondary={
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
+                    <>
+                      <Typography component="span" variant="body2" color="text.secondary">
                         {rec.reasons.join(" • ")}
                       </Typography>
                       {rec.store.rating && (
-                        <Typography variant="caption" color="text.secondary">
-                          Rating: {rec.store.rating.toFixed(1)} stars
-                        </Typography>
+                        <>
+                          <br />
+                          <Typography component="span" variant="caption" color="text.secondary">
+                            Rating: {rec.store.rating.toFixed(1)} stars
+                          </Typography>
+                        </>
                       )}
-                    </Box>
+                    </>
                   }
                 />
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 1, ml: 2 }}>
+                  <Chip
+                    label={`${(rec.score * 100).toFixed(0)}% match`}
+                    size="small"
+                    variant="outlined"
+                  />
+                  <Chip
+                    label={rec.recommendationType}
+                    size="small"
+                    color={
+                      rec.recommendationType === "value"
+                        ? "success"
+                        : rec.recommendationType === "convenience"
+                        ? "info"
+                        : rec.recommendationType === "loyalty"
+                        ? "secondary"
+                        : "primary"
+                    }
+                    variant="outlined"
+                  />
+                  <Chip
+                    label={`${rec.confidenceLevel} confidence`}
+                    size="small"
+                    color={
+                      rec.confidenceLevel === "high"
+                        ? "success"
+                        : rec.confidenceLevel === "medium"
+                        ? "warning"
+                        : "default"
+                    }
+                    variant="outlined"
+                  />
+                </Box>
               </ListItem>
             ))}
           </List>

@@ -552,6 +552,74 @@ const StoreComparison: React.FC<StoreComparisonProps> = ({
     }
   }, [items, stores]);
 
+  // Trigger batch price processing when stores and items are available
+  useEffect(() => {
+    const shouldTriggerBatchProcessing = 
+      items.length > 0 && 
+      stores.length > 0 && 
+      useFastBatchProcessing && 
+      !loading;
+
+    if (shouldTriggerBatchProcessing) {
+      console.log(`🚀 Triggering batch price processing for ${items.length} items at ${stores.length} stores`);
+      
+      const handleBatchProcessing = async () => {
+        setLoading(true);
+        setBatchProcessingStatus(`Processing ${items.length} items at ${stores.length} stores...`);
+        
+        try {
+          const itemNames = items.map(item => item.name);
+          const batchResults = await batchProcessPrices(itemNames, stores);
+          
+          // Convert batch results to the format expected by the component
+          const newPrices: Record<string, Record<string, PriceResult>> = {};
+          
+          batchResults.forEach((storeMap, itemName) => {
+            if (!newPrices[itemName]) {
+              newPrices[itemName] = {};
+            }
+            storeMap.forEach((result, storeName) => {
+              newPrices[itemName][storeName] = result;
+            });
+          });
+          
+          setPrices(newPrices);
+          
+          // Update stores with the fetched prices
+          const updatedStores = stores.map(store => ({
+            ...store,
+            items: itemNames.map(itemName => {
+              const storePrice = newPrices[itemName]?.[store.name];
+              return {
+                name: itemName,
+                price: storePrice?.price || null,
+                lastUpdated: storePrice ? new Date().toISOString() : null,
+                productName: storePrice?.productName,
+                isGenericName: !storePrice?.productName,
+                productDetail: storePrice?.source || null
+              };
+            })
+          }));
+          
+          setStores(updatedStores);
+          setBatchProcessingStatus('');
+          
+          console.log(`✅ Batch processing completed for ${items.length} items`);
+        } catch (error) {
+          console.error('Batch processing failed:', error);
+          setBatchProcessingStatus('Error processing prices');
+          onError('Failed to fetch prices');
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      // Debounce the batch processing to avoid rapid-fire requests
+      const timeoutId = setTimeout(handleBatchProcessing, 1000);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [items, stores, useFastBatchProcessing, loading]);
+
   // Fetch Mapbox token from backend
   useEffect(() => {
     const fetchMapboxToken = async () => {
