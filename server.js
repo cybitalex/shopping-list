@@ -78,19 +78,24 @@ app.get("/api/google-price", async (req, res) => {
       });
     }
 
-    console.log(
-      `🔍 Price search for: ${item}${store ? ` at ${store}` : ""}`
-    );
+    console.log(`🔍 Price search for: ${item}${store ? ` at ${store}` : ""}`);
 
     // Step 1: Try SerpAPI first (preferred method)
     if (SERP_API_KEY && store) {
       console.log(`📡 Trying SerpAPI for ${item} at ${store}`);
       try {
-        const userLocation = lat && lng ? { lat: parseFloat(lat), lng: parseFloat(lng) } : null;
-        const serpResult = await searchProductsWithSerpAPI(item, store, userLocation);
-        
+        const userLocation =
+          lat && lng ? { lat: parseFloat(lat), lng: parseFloat(lng) } : null;
+        const serpResult = await searchProductsWithSerpAPI(
+          item,
+          store,
+          userLocation
+        );
+
         if (serpResult && serpResult.price) {
-          console.log(`✅ SerpAPI success: $${serpResult.price} for ${item} at ${store}`);
+          console.log(
+            `✅ SerpAPI success: $${serpResult.price} for ${item} at ${store}`
+          );
           return res.json({
             success: true,
             price: serpResult.price,
@@ -102,11 +107,13 @@ app.get("/api/google-price", async (req, res) => {
             isEstimate: false,
             returnPolicy: serpResult.returnPolicy,
             rating: serpResult.rating,
-            reviewCount: serpResult.reviewCount
+            reviewCount: serpResult.reviewCount,
           });
         }
       } catch (error) {
-        console.log(`⚠️ SerpAPI failed for ${item} at ${store}: ${error.message}`);
+        console.log(
+          `⚠️ SerpAPI failed for ${item} at ${store}: ${error.message}`
+        );
       }
     } else if (!store) {
       console.log(`⏭️ Skipping SerpAPI - no specific store provided`);
@@ -115,7 +122,11 @@ app.get("/api/google-price", async (req, res) => {
     }
 
     // Step 2: Fall back to Playwright scraper only if SerpAPI failed/unavailable
-    console.log(`🎭 Falling back to Playwright scraper for ${item}${store ? ` at ${store}` : ""}`);
+    console.log(
+      `🎭 Falling back to Playwright scraper for ${item}${
+        store ? ` at ${store}` : ""
+      }`
+    );
     const scraperResult = await scrapeGoogleShopping(item, store || "");
 
     if (scraperResult.success) {
@@ -468,12 +479,15 @@ app.get("/api/stores", async (req, res) => {
       success: true,
       stores: storesWithPrices,
       metadata: {
-        searchLocation: { lat: parseFloat(latitude), lng: parseFloat(longitude) },
+        searchLocation: {
+          lat: parseFloat(latitude),
+          lng: parseFloat(longitude),
+        },
         timestamp: new Date().toISOString(),
         cacheFor: 30 * 60 * 1000, // 30 minutes in milliseconds
         itemCount: searchItems.length,
-        storeCount: storesWithPrices.length
-      }
+        storeCount: storesWithPrices.length,
+      },
     });
   } catch (error) {
     console.error("Error in /api/stores:", error);
@@ -494,10 +508,32 @@ async function findNearbyGroceryStores(latitude, longitude) {
 
     // Gas station keywords to filter out
     const gasStationKeywords = [
-      'shell', 'exxon', 'mobil', 'chevron', 'bp', 'conoco', 'texaco', 'citgo', 
-      'sunoco', 'gulf', 'marathon', 'valero', 'arco', 'speedway', 'wawa', 
-      'sheetz', 'circle k', 'pilot', 'flying j', 'truck stop', 'gas station',
-      'fuel', 'petrol', 'amoco', 'phillips 66', 'sinclair'
+      "shell",
+      "exxon",
+      "mobil",
+      "chevron",
+      "bp",
+      "conoco",
+      "texaco",
+      "citgo",
+      "sunoco",
+      "gulf",
+      "marathon",
+      "valero",
+      "arco",
+      "speedway",
+      "wawa",
+      "sheetz",
+      "circle k",
+      "pilot",
+      "flying j",
+      "truck stop",
+      "gas station",
+      "fuel",
+      "petrol",
+      "amoco",
+      "phillips 66",
+      "sinclair",
     ];
 
     for (const type of types) {
@@ -511,17 +547,20 @@ async function findNearbyGroceryStores(latitude, longitude) {
           // Filter out gas stations
           if (place.name) {
             const placeName = place.name.toLowerCase();
-            const isGasStation = gasStationKeywords.some(keyword => 
+            const isGasStation = gasStationKeywords.some((keyword) =>
               placeName.includes(keyword)
             );
-            
+
             // Also check place types for gas station indicators
-            const hasGasStationType = place.types && place.types.some(type => 
-              type.includes('gas_station') || 
-              type.includes('fuel') || 
-              type.includes('petrol')
-            );
-            
+            const hasGasStationType =
+              place.types &&
+              place.types.some(
+                (type) =>
+                  type.includes("gas_station") ||
+                  type.includes("fuel") ||
+                  type.includes("petrol")
+              );
+
             if (isGasStation || hasGasStationType) {
               console.log(`🚫 Filtered out gas station: ${place.name}`);
               return; // Skip this place

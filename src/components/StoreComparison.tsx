@@ -381,7 +381,9 @@ const batchProcessPrices = async (
               const response = await fetch(
                 `/api/google-price?item=${encodeURIComponent(
                   item
-                )}&store=${encodeURIComponent(store.name)}&lat=${store.latitude || ''}&lng=${store.longitude || ''}`
+                )}&store=${encodeURIComponent(store.name)}&lat=${
+                  store.latitude || ""
+                }&lng=${store.longitude || ""}`
               );
               if (!response.ok) return null;
 
@@ -1153,7 +1155,7 @@ const StoreComparison: React.FC<StoreComparisonProps> = ({
                 sx={{ mr: 1, color: "text.secondary", fontSize: 20 }}
               />
               <Typography variant="body2" color="text.secondary">
-                📏 {selectedStore.distance.toFixed(1)} miles away
+                📏 {typeof selectedStore.distance === 'number' ? selectedStore.distance.toFixed(1) : 'Unknown'} miles away
               </Typography>
             </Box>
             {selectedStore.rating && (
@@ -1312,7 +1314,7 @@ const StoreComparison: React.FC<StoreComparisonProps> = ({
                               color={isBestPrice ? "success.main" : "inherit"}
                               fontWeight={isBestPrice ? "bold" : "normal"}
                             >
-                              ${item.price.toFixed(2)}
+                              ${typeof item.price === 'number' ? item.price.toFixed(2) : 'N/A'}
                             </Typography>
                           ) : (
                             "—"
@@ -1328,7 +1330,7 @@ const StoreComparison: React.FC<StoreComparisonProps> = ({
                                 color="text.secondary"
                                 sx={{ fontWeight: "medium" }}
                               >
-                                ${unitPrice.toFixed(2)}/{unitInfo.unit}
+                                ${typeof unitPrice === 'number' ? unitPrice.toFixed(2) : 'N/A'}/{unitInfo.unit}
                               </Typography>
                             </Tooltip>
                           ) : (
@@ -1550,7 +1552,7 @@ const StoreComparison: React.FC<StoreComparisonProps> = ({
                       <TableCell>
                         <Tooltip
                           title={`${
-                            storeDistance !== null
+                            storeDistance !== null && typeof storeDistance === 'number'
                               ? storeDistance.toFixed(1)
                               : "Unknown"
                           } miles from your location`}
@@ -1561,7 +1563,7 @@ const StoreComparison: React.FC<StoreComparisonProps> = ({
                             variant="body2"
                             sx={{ cursor: "pointer" }}
                           >
-                            {storeDistance !== null
+                            {storeDistance !== null && typeof storeDistance === 'number'
                               ? `${storeDistance.toFixed(1)} mi`
                               : "Unknown distance"}
                           </Typography>
@@ -1589,7 +1591,7 @@ const StoreComparison: React.FC<StoreComparisonProps> = ({
                                 : "normal"
                             }
                           >
-                            ${cheapestItem.price.toFixed(2)}
+                            ${typeof cheapestItem.price === 'number' ? cheapestItem.price.toFixed(2) : 'N/A'}
                             {findCheapestStoreForItem(cheapestItem.name) ===
                               store.name && (
                               <Typography
