@@ -64,13 +64,13 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 
-// Add a new route for Google Shopping results using our scraper
+// Add a new route for Google Shopping results - tries API first, then scraper
 app.get("/api/google-price", async (req, res) => {
   // Set content type explicitly to ensure client sees it as JSON
   res.setHeader("Content-Type", "application/json");
 
   try {
-    const { item, store } = req.query;
+    const { item, store, lat, lng } = req.query;
     if (!item) {
       return res.status(400).json({
         success: false,
@@ -79,10 +79,43 @@ app.get("/api/google-price", async (req, res) => {
     }
 
     console.log(
-      `Using scraper to find price for ${item}${store ? ` at ${store}` : ""}`
+      `🔍 Price search for: ${item}${store ? ` at ${store}` : ""}`
     );
 
-    // Use our custom scraper
+    // Step 1: Try SerpAPI first (preferred method)
+    if (SERP_API_KEY && store) {
+      console.log(`📡 Trying SerpAPI for ${item} at ${store}`);
+      try {
+        const userLocation = lat && lng ? { lat: parseFloat(lat), lng: parseFloat(lng) } : null;
+        const serpResult = await searchProductsWithSerpAPI(item, store, userLocation);
+        
+        if (serpResult && serpResult.price) {
+          console.log(`✅ SerpAPI success: $${serpResult.price} for ${item} at ${store}`);
+          return res.json({
+            success: true,
+            price: serpResult.price,
+            productName: serpResult.title || item,
+            store: serpResult.store || store,
+            fullStoreName: serpResult.store || store,
+            url: serpResult.link || "",
+            source: "serpapi",
+            isEstimate: false,
+            returnPolicy: serpResult.returnPolicy,
+            rating: serpResult.rating,
+            reviewCount: serpResult.reviewCount
+          });
+        }
+      } catch (error) {
+        console.log(`⚠️ SerpAPI failed for ${item} at ${store}: ${error.message}`);
+      }
+    } else if (!store) {
+      console.log(`⏭️ Skipping SerpAPI - no specific store provided`);
+    } else {
+      console.log(`⏭️ Skipping SerpAPI - no API key configured`);
+    }
+
+    // Step 2: Fall back to Playwright scraper only if SerpAPI failed/unavailable
+    console.log(`🎭 Falling back to Playwright scraper for ${item}${store ? ` at ${store}` : ""}`);
     const scraperResult = await scrapeGoogleShopping(item, store || "");
 
     if (scraperResult.success) {

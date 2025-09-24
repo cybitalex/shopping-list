@@ -381,7 +381,7 @@ const batchProcessPrices = async (
               const response = await fetch(
                 `/api/google-price?item=${encodeURIComponent(
                   item
-                )}&store=${encodeURIComponent(store.name)}`
+                )}&store=${encodeURIComponent(store.name)}&lat=${store.latitude || ''}&lng=${store.longitude || ''}`
               );
               if (!response.ok) return null;
 
