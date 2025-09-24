@@ -476,6 +476,9 @@ async function searchProductsWithScaleSerp(
       },
     });
 
+    console.log(`Scale Serp response status: ${response.status}`);
+    console.log(`Scale Serp response data keys: ${Object.keys(response.data)}`);
+
     // Check for Scale Serp errors
     if (response.data.error) {
       console.error(`Scale Serp error: ${response.data.error}`);
@@ -493,12 +496,11 @@ async function searchProductsWithScaleSerp(
     // Find the best match (lowest price or first result)
     const bestResult = response.data.shopping_results.reduce(
       (best, current) => {
-        const bestPrice = parseFloat(
-          best.price?.replace(/[^0-9.]/g, "") || "999"
-        );
-        const currentPrice = parseFloat(
-          current.price?.replace(/[^0-9.]/g, "") || "999"
-        );
+        // Scale Serp returns price as a number, not string
+        const bestPrice = typeof best.price === 'number' ? best.price : 
+                         parseFloat(String(best.price || "999").replace(/[^0-9.]/g, ""));
+        const currentPrice = typeof current.price === 'number' ? current.price : 
+                            parseFloat(String(current.price || "999").replace(/[^0-9.]/g, ""));
         return currentPrice < bestPrice ? current : best;
       }
     );
