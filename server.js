@@ -18,6 +18,10 @@ dotenv.config();
 const SERP_API_KEY = process.env.SERPER_API_KEY;
 const SERP_API_BASE_URL = "https://serpapi.com/search.json";
 
+// Scale Serp API configuration
+const SCALE_SERP_API_KEY = process.env.SCALE_SERP_API_KEY;
+const SCALE_SERP_API_BASE_URL = "https://api.scaleserp.com/search";
+
 const app = express();
 app.use(
   cors({
@@ -68,7 +72,7 @@ app.use(express.json());
 app.get("/api/google-price", async (req, res) => {
   // Set content type explicitly to ensure client sees it as JSON
   res.setHeader("Content-Type", "application/json");
-  
+
   // Set a timeout for the entire request
   const timeout = setTimeout(() => {
     if (!res.headersSent) {
@@ -125,10 +129,12 @@ app.get("/api/google-price", async (req, res) => {
         console.log(
           `⚠️ SerpAPI failed for ${item} at ${store}: ${error.message}`
         );
-        
+
         // If SerpAPI quota is exceeded, disable it for this session
-        if (error.message.includes("run out of searches") || 
-            error.message.includes("quota exceeded")) {
+        if (
+          error.message.includes("run out of searches") ||
+          error.message.includes("quota exceeded")
+        ) {
           console.log("🚫 SerpAPI quota exceeded - disabling for this session");
           SERP_API_KEY = null; // Disable SerpAPI for this session
         }
@@ -139,7 +145,48 @@ app.get("/api/google-price", async (req, res) => {
       console.log(`⏭️ Skipping SerpAPI - no API key configured`);
     }
 
-    // Step 2: Fall back to Playwright scraper only if SerpAPI failed/unavailable
+    // Step 2: Try Scale Serp API as second option
+    if (SCALE_SERP_API_KEY && store) {
+      console.log(`📡 Trying Scale Serp API for ${item} at ${store}`);
+      try {
+        const userLocation =
+          lat && lng ? { lat: parseFloat(lat), lng: parseFloat(lng) } : null;
+        const scaleSerpResult = await searchProductsWithScaleSerp(
+          item,
+          store,
+          userLocation
+        );
+
+        if (scaleSerpResult && scaleSerpResult.price) {
+          console.log(
+            `✅ Scale Serp success: $${scaleSerpResult.price} for ${item} at ${store}`
+          );
+          clearTimeout(timeout);
+          return res.json({
+            success: true,
+            price: scaleSerpResult.price,
+            productName: scaleSerpResult.name || item,
+            store: scaleSerpResult.store || store,
+            fullStoreName: scaleSerpResult.store || store,
+            url: scaleSerpResult.link || "",
+            source: "scaleserp",
+            isEstimate: false,
+            rating: scaleSerpResult.rating,
+            reviewCount: scaleSerpResult.reviews,
+          });
+        }
+      } catch (error) {
+        console.log(
+          `⚠️ Scale Serp failed for ${item} at ${store}: ${error.message}`
+        );
+      }
+    } else if (!store) {
+      console.log(`⏭️ Skipping Scale Serp - no specific store provided`);
+    } else {
+      console.log(`⏭️ Skipping Scale Serp - no API key configured`);
+    }
+
+    // Step 3: Fall back to Playwright scraper only if both APIs failed/unavailable
     console.log(
       `🎭 Falling back to Playwright scraper for ${item}${
         store ? ` at ${store}` : ""
@@ -378,6 +425,115 @@ async function searchProductsWithSerpAPI(
       );
       await delay((retryCount + 1) * 2000); // Exponential backoff: 2s, 4s
       return searchProductsWithSerpAPI(
+        itemName,
+        storeName,
+        userLocation,
+        retryCount + 1
+      );
+    }
+
+    return null;
+  }
+}
+
+// Scale Serp API function for price searching
+async function searchProductsWithScaleSerp(
+  itemName,
+  storeName,
+  userLocation,
+  retryCount = 0
+) {
+  try {
+    if (!SCALE_SERP_API_KEY) {
+      console.warn("Scale Serp API key not configured, skipping price search");
+      return null;
+    }
+
+    console.log(
+      `Searching Scale Serp for: ${itemName} at ${storeName} (attempt ${
+        retryCount + 1
+      })`
+    );
+
+    const params = new URLSearchParams({
+      api_key: SCALE_SERP_API_KEY,
+      q: `${itemName} ${storeName}`,
+      search_type: "shopping",
+      gl: "us",
+      hl: "en",
+      num: 10,
+    });
+
+    // Add location if provided
+    if (userLocation && userLocation.lat && userLocation.lng) {
+      params.append("location", `${userLocation.lat},${userLocation.lng}`);
+    }
+
+    const response = await axios.get(`${SCALE_SERP_API_BASE_URL}?${params}`, {
+      timeout: 15000, // 15 second timeout
+      headers: {
+        "User-Agent": "ShopCheaply/1.0",
+      },
+    });
+
+    // Check for Scale Serp errors
+    if (response.data.error) {
+      console.error(`Scale Serp error: ${response.data.error}`);
+      throw new Error(`Scale Serp error: ${response.data.error}`);
+    }
+
+    if (
+      !response.data.shopping_results ||
+      response.data.shopping_results.length === 0
+    ) {
+      console.log(`No Scale Serp results for ${itemName} at ${storeName}`);
+      return null;
+    }
+
+    // Find the best match (lowest price or first result)
+    const bestResult = response.data.shopping_results.reduce(
+      (best, current) => {
+        const bestPrice = parseFloat(
+          best.price?.replace(/[^0-9.]/g, "") || "999"
+        );
+        const currentPrice = parseFloat(
+          current.price?.replace(/[^0-9.]/g, "") || "999"
+        );
+        return currentPrice < bestPrice ? current : best;
+      }
+    );
+
+    return {
+      name: bestResult.title || itemName,
+      price: bestResult.price,
+      rating: bestResult.rating,
+      reviews: bestResult.reviews,
+      source: "scaleserp",
+      link: bestResult.link,
+      store: bestResult.source || storeName,
+    };
+  } catch (error) {
+    console.error(
+      `Error searching Scale Serp for ${itemName} at ${storeName} (attempt ${
+        retryCount + 1
+      }):`,
+      error.code || error.message
+    );
+
+    // Retry logic for connection issues
+    if (
+      (error.code === "ECONNRESET" ||
+        error.code === "ETIMEDOUT" ||
+        error.code === "ECONNREFUSED") &&
+      retryCount < 2
+    ) {
+      console.log(
+        `Retrying Scale Serp request for ${itemName} at ${storeName} in ${
+          (retryCount + 1) * 2
+        } seconds...`
+      );
+      await delay((retryCount + 1) * 2000); // Exponential backoff: 2s, 4s
+      return searchProductsWithScaleSerp(
         itemName,
         storeName,
         userLocation,
