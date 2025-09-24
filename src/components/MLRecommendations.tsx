@@ -315,13 +315,21 @@ const MLRecommendations: React.FC<MLRecommendationsProps> = ({
                   primary={rec.store.name}
                   secondary={
                     <>
-                      <Typography component="span" variant="body2" color="text.secondary">
+                      <Typography
+                        component="span"
+                        variant="body2"
+                        color="text.secondary"
+                      >
                         {rec.reasons.join(" • ")}
                       </Typography>
                       {rec.store.rating && (
                         <>
                           <br />
-                          <Typography component="span" variant="caption" color="text.secondary">
+                          <Typography
+                            component="span"
+                            variant="caption"
+                            color="text.secondary"
+                          >
                             Rating: {rec.store.rating.toFixed(1)} stars
                           </Typography>
                         </>
@@ -329,7 +337,14 @@ const MLRecommendations: React.FC<MLRecommendationsProps> = ({
                     </>
                   }
                 />
-                <Box sx={{ display: "flex", flexDirection: "column", gap: 1, ml: 2 }}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 1,
+                    ml: 2,
+                  }}
+                >
                   <Chip
                     label={`${(rec.score * 100).toFixed(0)}% match`}
                     size="small"
