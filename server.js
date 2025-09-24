@@ -68,6 +68,16 @@ app.use(express.json());
 app.get("/api/google-price", async (req, res) => {
   // Set content type explicitly to ensure client sees it as JSON
   res.setHeader("Content-Type", "application/json");
+  
+  // Set a timeout for the entire request
+  const timeout = setTimeout(() => {
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        error: "Request timeout - price search took too long",
+      });
+    }
+  }, 60000); // 60 second timeout
 
   try {
     const { item, store, lat, lng } = req.query;
@@ -96,6 +106,7 @@ app.get("/api/google-price", async (req, res) => {
           console.log(
             `✅ SerpAPI success: $${serpResult.price} for ${item} at ${store}`
           );
+          clearTimeout(timeout);
           return res.json({
             success: true,
             price: serpResult.price,
@@ -187,6 +198,7 @@ app.get("/api/google-price", async (req, res) => {
         const priceStr = bestMatch.price?.replace("$", "") || "0";
         const price = parseFloat(priceStr);
 
+        clearTimeout(timeout);
         return res.status(200).json({
           success: true,
           price: isNaN(price) ? 0 : price,
@@ -205,6 +217,7 @@ app.get("/api/google-price", async (req, res) => {
         });
       } else {
         // No best match found
+        clearTimeout(timeout);
         return res.status(404).json({
           success: false,
           error: "No matching products found",
@@ -214,6 +227,7 @@ app.get("/api/google-price", async (req, res) => {
     } else {
       // Scraper returned an error
       console.error(`Scraper error: ${scraperResult.error}`);
+      clearTimeout(timeout);
       return res.status(500).json({
         success: false,
         error: scraperResult.error || "Failed to scrape price",
@@ -222,6 +236,7 @@ app.get("/api/google-price", async (req, res) => {
     }
   } catch (error) {
     console.error("Error using scraper:", error);
+    clearTimeout(timeout);
     return res.status(500).json({
       success: false,
       error: error.message || "Failed to fetch price",
