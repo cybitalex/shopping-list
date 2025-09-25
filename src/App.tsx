@@ -28,6 +28,7 @@ import { findNearbyStores } from "./services/places";
 import { loadGoogleMaps } from "./utils/googleMaps";
 import CheapestItemsSummary from "./components/CheapestItemsSummary";
 import MLRecommendations from "./components/MLRecommendations";
+import AIAssistant from "./components/AIAssistant";
 import { storeCacheService } from "./services/storeCache";
 import { mlRecommendationService } from "./services/mlRecommendations";
 
@@ -550,15 +551,22 @@ function App() {
       >
         <Header />
 
-        <Container 
-          maxWidth="lg" 
-          sx={{ 
-            flex: 1, 
-            mt: { xs: 1, sm: 2 }, 
+        <Container
+          maxWidth="lg"
+          sx={{
+            flex: 1,
+            mt: { xs: 1, sm: 2 },
             py: { xs: 2, sm: 4 },
-            px: { xs: 1, sm: 2 }
+            px: { xs: 1, sm: 2 },
           }}
         >
+          {/* AI Shopping Assistant */}
+          <AIAssistant
+            stores={stores as any}
+            items={items}
+            currentLocation={currentLocation}
+          />
+
           {/* ML Recommendations */}
           <MLRecommendations
             recommendations={storeRecommendations}
@@ -578,12 +586,14 @@ function App() {
           <Grid container spacing={{ xs: 2, sm: 3 }}>
             {/* Grocery List - Full width on mobile, left column on desktop */}
             <Grid item xs={12} lg={4}>
-              <Paper sx={{ 
-                p: { xs: 2, sm: 3 }, 
-                mb: { xs: 2, sm: 3 },
-                border: "1px solid #e2e8f0",
-                boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.1)",
-              }}>
+              <Paper
+                sx={{
+                  p: { xs: 2, sm: 3 },
+                  mb: { xs: 2, sm: 3 },
+                  border: "1px solid #e2e8f0",
+                  boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.1)",
+                }}
+              >
                 <GroceryList
                   items={items}
                   onAddItem={handleAddItem}
@@ -595,13 +605,15 @@ function App() {
               </Paper>
 
               {/* Mobile: Location controls under grocery list */}
-              <Paper sx={{ 
-                p: { xs: 2, sm: 3 }, 
-                mb: { xs: 2, sm: 3 },
-                border: "1px solid #e2e8f0",
-                boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.1)",
-                display: { lg: 'none' }
-              }}>
+              <Paper
+                sx={{
+                  p: { xs: 2, sm: 3 },
+                  mb: { xs: 2, sm: 3 },
+                  border: "1px solid #e2e8f0",
+                  boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.1)",
+                  display: { lg: "none" },
+                }}
+              >
                 <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
                   Find Prices at Nearby Stores
                 </Typography>
@@ -619,10 +631,10 @@ function App() {
                           <RefreshIcon />
                         )
                       }
-                      sx={{ 
+                      sx={{
                         py: 1.5,
                         fontSize: "0.875rem",
-                        fontWeight: 500
+                        fontWeight: 500,
                       }}
                     >
                       {isLocatingStores
@@ -657,12 +669,14 @@ function App() {
 
             {/* Store Comparison & Map - Full width on mobile, right column on desktop */}
             <Grid item xs={12} lg={8}>
-              <Paper sx={{ 
-                p: { xs: 2, sm: 3 }, 
-                mb: { xs: 2, sm: 3 },
-                border: "1px solid #e2e8f0",
-                boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.1)",
-              }}>
+              <Paper
+                sx={{
+                  p: { xs: 2, sm: 3 },
+                  mb: { xs: 2, sm: 3 },
+                  border: "1px solid #e2e8f0",
+                  boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.1)",
+                }}
+              >
                 <StoreComparison
                   items={items.map((item) => ({ name: item.name }))}
                   stores={stores as any}
@@ -684,13 +698,15 @@ function App() {
               </Paper>
 
               {/* Desktop: Location controls in sidebar */}
-              <Paper sx={{ 
-                p: 3, 
-                mb: 3,
-                border: "1px solid #e2e8f0",
-                boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.1)",
-                display: { xs: 'none', lg: 'block' }
-              }}>
+              <Paper
+                sx={{
+                  p: 3,
+                  mb: 3,
+                  border: "1px solid #e2e8f0",
+                  boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.1)",
+                  display: { xs: "none", lg: "block" },
+                }}
+              >
                 <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
                   Find Prices at Nearby Stores
                 </Typography>
@@ -708,10 +724,10 @@ function App() {
                           <RefreshIcon />
                         )
                       }
-                      sx={{ 
+                      sx={{
                         py: 1.5,
                         fontSize: "0.875rem",
-                        fontWeight: 500
+                        fontWeight: 500,
                       }}
                     >
                       {isLocatingStores

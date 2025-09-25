@@ -27,6 +27,11 @@ const SCALE_SERP_API_BASE_URL = "https://api.scaleserp.com/search";
 const SCRAPER_API_KEY = process.env.SCRAPER_API_KEY;
 const SCRAPER_API_BASE_URL = "http://api.scraperapi.com";
 
+// Open WebUI configuration
+const OPEN_WEBUI_API_KEY = process.env.OPEN_WEBUI_API_KEY;
+const OPEN_WEBUI_BASE_URL = process.env.OPEN_WEBUI_BASE_URL || "http://localhost:3000";
+const OPEN_WEBUI_MODEL = process.env.OPEN_WEBUI_MODEL || "llama3.1";
+
 // Mock data configuration
 const USE_MOCK_DATA = process.env.USE_MOCK_DATA === 'true';
 let mockData = null;
@@ -254,11 +259,42 @@ if (!GOOGLE_MAPS_API_KEY) {
   process.exit(1);
 }
 
-// Initialize OpenAI
+// Initialize OpenAI (legacy)
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY,
 });
 const openai = new OpenAIApi(configuration);
+
+// Open WebUI chat completion function
+async function generateOpenWebUICompletion(messages, temperature = 0.7) {
+  if (!OPEN_WEBUI_API_KEY || OPEN_WEBUI_API_KEY === 'your_api_key_here') {
+    throw new Error('Open WebUI API key not configured');
+  }
+
+  try {
+    const response = await axios.post(
+      `${OPEN_WEBUI_BASE_URL}/api/chat/completions`,
+      {
+        model: OPEN_WEBUI_MODEL,
+        messages: messages,
+        temperature: temperature,
+        max_tokens: 1000,
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${OPEN_WEBUI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 30000, // 30 second timeout
+      }
+    );
+
+    return response.data.choices[0].message.content;
+  } catch (error) {
+    console.error('Open WebUI API error:', error.message);
+    throw error;
+  }
+}
 
 // Add this list of store types to filter out
 const EXCLUDED_STORE_TYPES = [
@@ -1242,8 +1278,44 @@ Please provide:
 
 Keep the response concise, practical, and focused on actionable insights. Use bullet points and clear formatting.`;
 
-    if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'your_openai_api_key_here') {
-      // Return basic analysis without AI if no API key
+    // Try Open WebUI first, fall back to OpenAI, then basic analysis
+    let aiInsights = null;
+    let aiSource = "basic-analysis";
+
+    try {
+      // Try Open WebUI first
+      if (OPEN_WEBUI_API_KEY && OPEN_WEBUI_API_KEY !== 'your_api_key_here') {
+        console.log('🤖 Using Open WebUI for AI analysis...');
+        aiInsights = await generateOpenWebUICompletion([{
+          role: "user",
+          content: prompt
+        }], 0.7);
+        aiSource = "open-webui";
+        console.log('✅ Open WebUI analysis completed');
+      } else if (process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== 'your_openai_api_key_here') {
+        console.log('🤖 Using OpenAI for AI analysis...');
+        // Fallback to OpenAI
+        const completion = await openai.createChatCompletion({
+          model: "gpt-3.5-turbo",
+          messages: [{
+            role: "user",
+            content: prompt
+          }],
+          max_tokens: 800,
+          temperature: 0.7,
+        });
+        aiInsights = completion.data.choices[0].message.content;
+        aiSource = "openai-gpt35";
+        console.log('✅ OpenAI analysis completed');
+      }
+    } catch (error) {
+      console.error('AI analysis failed:', error.message);
+      aiInsights = null; // Will fall back to basic analysis
+    }
+
+    // If AI analysis failed, provide basic analysis
+    if (!aiInsights) {
+      console.log('📊 Falling back to basic analysis');
       const cheapestStore = storeData.reduce((best, current) => 
         current.totalCost < best.totalCost ? current : best
       );
@@ -1272,19 +1344,6 @@ Keep the response concise, practical, and focused on actionable insights. Use bu
       });
     }
 
-    // Generate AI analysis
-    const completion = await openai.createChatCompletion({
-      model: "gpt-3.5-turbo",
-      messages: [{
-        role: "user",
-        content: prompt
-      }],
-      max_tokens: 800,
-      temperature: 0.7,
-    });
-
-    const aiInsights = completion.data.choices[0].message.content;
-
     // Add mock insights if available
     let additionalInsights = {};
     if (USE_MOCK_DATA && mockData && mockData.ai_insights) {
@@ -1296,13 +1355,27 @@ Keep the response concise, practical, and focused on actionable insights. Use bu
       };
     }
 
+    // Parse AI response (expecting JSON or plain text)
+    let parsedInsights;
+    try {
+      // Try to parse as JSON first
+      parsedInsights = JSON.parse(aiInsights);
+    } catch (e) {
+      // If not JSON, structure the plain text response
+      parsedInsights = {
+        analysis: aiInsights,
+        rawResponse: true
+      };
+    }
+
     res.json({
       success: true,
       summary: {
-        aiAnalysis: aiInsights,
+        ...parsedInsights,
         insights: additionalInsights,
         timestamp: new Date().toISOString(),
-        source: "openai-gpt35"
+        aiProvider: aiSource,
+        model: aiSource === 'open-webui' ? OPEN_WEBUI_MODEL : 'gpt-3.5-turbo'
       }
     });
 
@@ -1311,6 +1384,93 @@ Keep the response concise, practical, and focused on actionable insights. Use bu
     res.status(500).json({
       success: false,
       error: "Failed to generate AI summary",
+      details: error.message
+    });
+  }
+});
+
+// AI Shopping Assistant endpoint - powered by Open WebUI
+app.post('/api/ai-assistant', async (req, res) => {
+  try {
+    const { query, context } = req.body;
+
+    if (!query) {
+      return res.status(400).json({
+        success: false,
+        error: "Query is required"
+      });
+    }
+
+    // Enhanced prompt for shopping assistance
+    const assistantPrompt = `You are an expert shopping assistant helping users make smart grocery shopping decisions. 
+
+User Question: "${query}"
+
+Available Context:
+${context ? JSON.stringify(context, null, 2) : 'No specific context provided'}
+
+Instructions:
+- Provide helpful, practical shopping advice
+- If price data is available, offer specific savings recommendations
+- Suggest alternatives, brands, or shopping strategies
+- Consider nutritional aspects when relevant
+- Be concise but informative
+- Use a friendly, helpful tone
+
+Response should be conversational and directly address the user's question.`;
+
+    let assistantResponse = null;
+    let responseSource = "basic";
+
+    try {
+      if (OPEN_WEBUI_API_KEY && OPEN_WEBUI_API_KEY !== 'your_api_key_here') {
+        console.log('🤖 Generating AI shopping assistance with Open WebUI...');
+        assistantResponse = await generateOpenWebUICompletion([{
+          role: "system",
+          content: "You are a helpful shopping assistant focused on saving money and making smart grocery choices."
+        }, {
+          role: "user",
+          content: assistantPrompt
+        }], 0.8);
+        responseSource = "open-webui";
+      } else if (process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== 'your_openai_api_key_here') {
+        console.log('🤖 Generating AI shopping assistance with OpenAI...');
+        const completion = await openai.createChatCompletion({
+          model: "gpt-3.5-turbo",
+          messages: [
+            { role: "system", content: "You are a helpful shopping assistant focused on saving money and making smart grocery choices." },
+            { role: "user", content: assistantPrompt }
+          ],
+          max_tokens: 500,
+          temperature: 0.8,
+        });
+        assistantResponse = completion.data.choices[0].message.content;
+        responseSource = "openai";
+      } else {
+        // Basic fallback response
+        assistantResponse = `I'd be happy to help with your shopping question: "${query}". However, I need an AI service configured to provide detailed assistance. Please set up Open WebUI or OpenAI to get personalized shopping recommendations.`;
+        responseSource = "fallback";
+      }
+    } catch (error) {
+      console.error('AI assistant error:', error.message);
+      assistantResponse = `I encountered an issue while processing your question: "${query}". Please try again or rephrase your question.`;
+      responseSource = "error-fallback";
+    }
+
+    res.json({
+      success: true,
+      response: assistantResponse,
+      query: query,
+      source: responseSource,
+      model: responseSource === 'open-webui' ? OPEN_WEBUI_MODEL : 'gpt-3.5-turbo',
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error("AI Assistant error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to generate AI assistance",
       details: error.message
     });
   }
