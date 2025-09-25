@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Box,
   Paper,
@@ -11,6 +11,7 @@ import {
   useTheme,
   Collapse,
   IconButton,
+  Divider,
 } from '@mui/material';
 import {
   Psychology as AIIcon,
@@ -18,8 +19,18 @@ import {
   ExpandLess,
   ExpandMore,
   SmartToy,
+  Person as UserIcon,
+  Clear as ClearIcon,
 } from '@mui/icons-material';
 import type { Store } from '../types/store';
+
+interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+  aiProvider?: string;
+}
 
 interface AIAssistantProps {
   stores?: Store[];
@@ -35,15 +46,42 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
   const theme = useTheme();
   const [isExpanded, setIsExpanded] = useState(false);
   const [query, setQuery] = useState('');
-  const [response, setResponse] = useState<string | null>(null);
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [aiProvider, setAiProvider] = useState<string | null>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const textFieldRef = useRef<HTMLInputElement>(null);
+
+  // Auto-scroll to bottom when chat updates
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [chatHistory, isLoading]);
+
+  // Focus text field when expanded
+  useEffect(() => {
+    if (isExpanded && textFieldRef.current) {
+      setTimeout(() => textFieldRef.current?.focus(), 100);
+    }
+  }, [isExpanded]);
 
   const handleSubmitQuery = async () => {
     if (!query.trim() || isLoading) return;
 
+    const userMessage: ChatMessage = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: query.trim(),
+      timestamp: new Date()
+    };
+
+    // Add user message to chat immediately
+    setChatHistory(prev => [...prev, userMessage]);
+    
+    // Clear the input field immediately
+    const currentQuery = query.trim();
+    setQuery('');
     setIsLoading(true);
-    setResponse(null);
 
     try {
       // Prepare context for the AI
@@ -65,7 +103,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          query: query.trim(),
+          query: currentQuery,
           context
         }),
       });
@@ -76,18 +114,29 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
 
       const data = await response.json();
       
-      if (data.success) {
-        setResponse(data.response);
-        setAiProvider(data.source);
-      } else {
-        setResponse(`Sorry, I couldn't process your question: ${data.error}`);
-      }
+      const assistantMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: data.success ? data.response : `Sorry, I couldn't process your question: ${data.error}`,
+        timestamp: new Date(),
+        aiProvider: data.source
+      };
+
+      setChatHistory(prev => [...prev, assistantMessage]);
 
     } catch (error) {
       console.error('AI Assistant error:', error);
-      setResponse('Sorry, I encountered an error while processing your question. Please try again.');
+      const errorMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: 'Sorry, I encountered an error while processing your question. Please try again.',
+        timestamp: new Date()
+      };
+      setChatHistory(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
+      // Focus back to text field for next message
+      setTimeout(() => textFieldRef.current?.focus(), 100);
     }
   };
 
@@ -96,6 +145,15 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
       event.preventDefault();
       handleSubmitQuery();
     }
+  };
+
+  const handleSuggestedQuestion = (question: string) => {
+    setQuery(question);
+    textFieldRef.current?.focus();
+  };
+
+  const clearChat = () => {
+    setChatHistory([]);
   };
 
   const suggestedQuestions = [
@@ -134,116 +192,210 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
               AI Shopping Assistant
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Ask me anything about your shopping list
+              {chatHistory.length > 0 
+                ? `${chatHistory.length} message${chatHistory.length === 1 ? '' : 's'}`
+                : 'Ask me anything about your shopping list'
+              }
             </Typography>
           </Box>
         </Box>
-        <IconButton>
-          {isExpanded ? <ExpandLess /> : <ExpandMore />}
-        </IconButton>
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          {chatHistory.length > 0 && (
+            <IconButton 
+              onClick={(e) => {
+                e.stopPropagation();
+                clearChat();
+              }}
+              size="small"
+              sx={{ mr: 1 }}
+            >
+              <ClearIcon />
+            </IconButton>
+          )}
+          <IconButton>
+            {isExpanded ? <ExpandLess /> : <ExpandMore />}
+          </IconButton>
+        </Box>
       </Box>
 
       {/* Expandable Content */}
       <Collapse in={isExpanded}>
         <Box sx={{ p: 3 }}>
-          {/* AI Response */}
-          {response && (
-            <Paper
+          {/* Chat History */}
+          {chatHistory.length > 0 && (
+            <Box
+              ref={chatContainerRef}
               sx={{
-                p: 2,
+                maxHeight: 400,
+                overflowY: 'auto',
                 mb: 3,
-                backgroundColor: alpha(theme.palette.success.main, 0.1),
-                border: `1px solid ${alpha(theme.palette.success.main, 0.3)}`,
+                p: 2,
+                backgroundColor: alpha(theme.palette.background.default, 0.5),
+                borderRadius: 2,
+                border: `1px solid ${alpha(theme.palette.divider, 0.2)}`,
               }}
             >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <AIIcon sx={{ color: theme.palette.success.main, fontSize: 20 }} />
-                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                  AI Assistant Response
-                </Typography>
-                {aiProvider && (
-                  <Chip
-                    label={aiProvider === 'open-webui' ? 'Open WebUI' : aiProvider}
-                    size="small"
-                    variant="outlined"
-                    sx={{ ml: 'auto', fontSize: '0.75rem' }}
-                  />
-                )}
-              </Box>
-              <Typography
-                variant="body2"
-                sx={{
-                  lineHeight: 1.6,
-                  whiteSpace: 'pre-wrap',
-                }}
-              >
-                {response}
-              </Typography>
-            </Paper>
+              {chatHistory.map((message, index) => (
+                <Box key={message.id}>
+                  {index > 0 && <Divider sx={{ my: 2 }} />}
+                  
+                  {/* Message */}
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      gap: 2,
+                      alignItems: 'flex-start',
+                    }}
+                  >
+                    {/* Avatar */}
+                    <Box
+                      sx={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: message.role === 'user' 
+                          ? alpha(theme.palette.primary.main, 0.1)
+                          : alpha(theme.palette.success.main, 0.1),
+                        color: message.role === 'user'
+                          ? theme.palette.primary.main
+                          : theme.palette.success.main,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {message.role === 'user' ? (
+                        <UserIcon sx={{ fontSize: 18 }} />
+                      ) : (
+                        <SmartToy sx={{ fontSize: 18 }} />
+                      )}
+                    </Box>
+
+                    {/* Message Content */}
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                          {message.role === 'user' ? 'You' : 'AI Assistant'}
+                        </Typography>
+                        {message.role === 'assistant' && message.aiProvider && (
+                          <Chip
+                            label={message.aiProvider === 'open-webui' ? 'Open WebUI' : message.aiProvider}
+                            size="small"
+                            variant="outlined"
+                            sx={{ fontSize: '0.7rem', height: 20 }}
+                          />
+                        )}
+                        <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
+                          {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </Typography>
+                      </Box>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          lineHeight: 1.6,
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word',
+                        }}
+                      >
+                        {message.content}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+              ))}
+              
+              {/* Loading indicator */}
+              {isLoading && (
+                <Box>
+                  <Divider sx={{ my: 2 }} />
+                  <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                    <Box
+                      sx={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: alpha(theme.palette.success.main, 0.1),
+                        color: theme.palette.success.main,
+                      }}
+                    >
+                      <SmartToy sx={{ fontSize: 18 }} />
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CircularProgress size={16} />
+                      <Typography variant="body2" color="text.secondary">
+                        AI is thinking...
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+              )}
+            </Box>
           )}
 
-          {/* Query Input */}
-          <Box sx={{ mb: 2 }}>
+          {/* Input Section */}
+          <Box sx={{ display: 'flex', gap: 1, mb: 3 }}>
             <TextField
               fullWidth
-              multiline
-              minRows={2}
-              maxRows={4}
-              placeholder="Ask me about your shopping list, price comparisons, alternatives, or money-saving tips..."
+              placeholder="Ask me about your shopping list, prices, alternatives, or money-saving tips..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyPress={handleKeyPress}
               disabled={isLoading}
+              size="small"
+              inputRef={textFieldRef}
               sx={{
                 '& .MuiOutlinedInput-root': {
                   backgroundColor: theme.palette.background.paper,
                 },
               }}
             />
-          </Box>
-
-          {/* Submit Button */}
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
             <Button
               variant="contained"
               onClick={handleSubmitQuery}
               disabled={!query.trim() || isLoading}
-              startIcon={
-                isLoading ? (
-                  <CircularProgress size={16} color="inherit" />
-                ) : (
-                  <SendIcon />
-                )
-              }
-              sx={{ minWidth: 120 }}
+              sx={{ 
+                minWidth: 44,
+                height: 40,
+                px: 2,
+              }}
             >
-              {isLoading ? 'Thinking...' : 'Ask AI'}
+              {isLoading ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : (
+                <SendIcon sx={{ fontSize: 18 }} />
+              )}
             </Button>
           </Box>
 
           {/* Suggested Questions */}
-          <Box>
-            <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600 }}>
-              Try asking:
-            </Typography>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-              {suggestedQuestions.map((question, index) => (
-                <Chip
-                  key={index}
-                  label={question}
-                  variant="outlined"
-                  size="small"
-                  onClick={() => setQuery(question)}
-                  sx={{
-                    cursor: 'pointer',
-                    '&:hover': {
-                      backgroundColor: alpha(theme.palette.primary.main, 0.1),
-                    },
-                  }}
-                />
-              ))}
+          {chatHistory.length === 0 && (
+            <Box>
+              <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600 }}>
+                Try asking:
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                {suggestedQuestions.map((question, index) => (
+                  <Chip
+                    key={index}
+                    label={question}
+                    variant="outlined"
+                    size="small"
+                    onClick={() => handleSuggestedQuestion(question)}
+                    sx={{
+                      cursor: 'pointer',
+                      '&:hover': {
+                        backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                      },
+                    }}
+                  />
+                ))}
+              </Box>
             </Box>
-          </Box>
+          )}
         </Box>
       </Collapse>
     </Paper>
