@@ -441,7 +441,7 @@ function App() {
             // Update stores with fresh price data
             setStores(stores);
             setSelectedStore(null);
-            setShowCheapestSummary(false);
+            setShowCheapestSummary(true); // Show summary when cached stores have fresh prices
           } catch (error) {
             console.error(
               "Error fetching fresh prices for cached stores:",
@@ -597,6 +597,7 @@ function App() {
                   onRemoveItem={(idToRemove: string) =>
                     setItems(items.filter((item) => item.id !== idToRemove))
                   }
+                  stores={stores as any}
                 />
               </Paper>
             </Grid>
