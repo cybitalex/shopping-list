@@ -550,7 +550,15 @@ function App() {
       >
         <Header />
 
-        <Container maxWidth="lg" sx={{ flex: 1, mt: 2, py: 4 }}>
+        <Container 
+          maxWidth="lg" 
+          sx={{ 
+            flex: 1, 
+            mt: { xs: 1, sm: 2 }, 
+            py: { xs: 2, sm: 4 },
+            px: { xs: 1, sm: 2 }
+          }}
+        >
           {/* ML Recommendations */}
           <MLRecommendations
             recommendations={storeRecommendations}
@@ -565,32 +573,17 @@ function App() {
             stores={stores as any}
             showSummary={showCheapestSummary}
           />
-          {/* Map at the top */}
-          <Paper sx={{ p: 3, mb: 3 }}>
-            <StoreComparison
-              items={items.map((item) => ({ name: item.name }))}
-              stores={stores as any}
-              selectedStore={selectedStore as any}
-              onStoreSelect={(store) =>
-                setSelectedStore(store as ComparisonStore)
-              }
-              isLocatingStores={isLocatingStores}
-              onError={setError}
-              onCheapestStore={(store) =>
-                setCheapestStore(store as ComparisonStore)
-              }
-              onRequestLocation={getCurrentLocation}
-              currentLocation={currentLocation}
-              setStores={(newStores) =>
-                setStores(newStores as ComparisonStore[])
-              }
-            />
-          </Paper>
 
-          <Grid container spacing={3}>
-            {/* Left Column - Grocery List */}
-            <Grid item xs={12} md={6}>
-              <Paper sx={{ p: 3, mb: 3 }}>
+          {/* Mobile-first responsive layout */}
+          <Grid container spacing={{ xs: 2, sm: 3 }}>
+            {/* Grocery List - Full width on mobile, left column on desktop */}
+            <Grid item xs={12} lg={4}>
+              <Paper sx={{ 
+                p: { xs: 2, sm: 3 }, 
+                mb: { xs: 2, sm: 3 },
+                border: "1px solid #e2e8f0",
+                boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.1)",
+              }}>
                 <GroceryList
                   items={items}
                   onAddItem={handleAddItem}
@@ -600,12 +593,16 @@ function App() {
                   stores={stores as any}
                 />
               </Paper>
-            </Grid>
 
-            {/* Right Column - Location Input */}
-            <Grid item xs={12} md={6}>
-              <Paper sx={{ p: 3, mb: 3 }}>
-                <Typography variant="h6" gutterBottom>
+              {/* Mobile: Location controls under grocery list */}
+              <Paper sx={{ 
+                p: { xs: 2, sm: 3 }, 
+                mb: { xs: 2, sm: 3 },
+                border: "1px solid #e2e8f0",
+                boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.1)",
+                display: { lg: 'none' }
+              }}>
+                <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
                   Find Prices at Nearby Stores
                 </Typography>
                 <Grid container spacing={2}>
@@ -622,6 +619,11 @@ function App() {
                           <RefreshIcon />
                         )
                       }
+                      sx={{ 
+                        py: 1.5,
+                        fontSize: "0.875rem",
+                        fontWeight: 500
+                      }}
                     >
                       {isLocatingStores
                         ? "Searching for Stores..."
@@ -637,20 +639,106 @@ function App() {
                       value={zipCode}
                       onChange={(e) => setZipCode(e.target.value)}
                       onKeyPress={(e) => e.key === "Enter" && searchByZipCode()}
-                      InputProps={{
-                        endAdornment: (
-                          <Button
-                            variant="contained"
-                            color="primary"
-                            onClick={searchByZipCode}
-                            disabled={isLocatingStores || !zipCode.trim()}
-                            sx={{ ml: 1 }}
-                          >
-                            Search
-                          </Button>
-                        ),
-                      }}
+                      size="small"
                     />
+                    <Button
+                      fullWidth
+                      variant="outlined"
+                      onClick={searchByZipCode}
+                      disabled={isLocatingStores || !zipCode.trim()}
+                      sx={{ mt: 1, py: 1 }}
+                    >
+                      Search by Zip Code
+                    </Button>
+                  </Grid>
+                </Grid>
+              </Paper>
+            </Grid>
+
+            {/* Store Comparison & Map - Full width on mobile, right column on desktop */}
+            <Grid item xs={12} lg={8}>
+              <Paper sx={{ 
+                p: { xs: 2, sm: 3 }, 
+                mb: { xs: 2, sm: 3 },
+                border: "1px solid #e2e8f0",
+                boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.1)",
+              }}>
+                <StoreComparison
+                  items={items.map((item) => ({ name: item.name }))}
+                  stores={stores as any}
+                  selectedStore={selectedStore as any}
+                  onStoreSelect={(store) =>
+                    setSelectedStore(store as ComparisonStore)
+                  }
+                  isLocatingStores={isLocatingStores}
+                  onError={setError}
+                  onCheapestStore={(store) =>
+                    setCheapestStore(store as ComparisonStore)
+                  }
+                  onRequestLocation={getCurrentLocation}
+                  currentLocation={currentLocation}
+                  setStores={(newStores) =>
+                    setStores(newStores as ComparisonStore[])
+                  }
+                />
+              </Paper>
+
+              {/* Desktop: Location controls in sidebar */}
+              <Paper sx={{ 
+                p: 3, 
+                mb: 3,
+                border: "1px solid #e2e8f0",
+                boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.1)",
+                display: { xs: 'none', lg: 'block' }
+              }}>
+                <Typography variant="h6" gutterBottom sx={{ fontWeight: 600 }}>
+                  Find Prices at Nearby Stores
+                </Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={12}>
+                    <Button
+                      fullWidth
+                      variant="contained"
+                      onClick={handleFindNearbyPrices}
+                      disabled={isLocatingStores}
+                      startIcon={
+                        isLocatingStores ? (
+                          <CircularProgress size={20} color="inherit" />
+                        ) : (
+                          <RefreshIcon />
+                        )
+                      }
+                      sx={{ 
+                        py: 1.5,
+                        fontSize: "0.875rem",
+                        fontWeight: 500
+                      }}
+                    >
+                      {isLocatingStores
+                        ? "Searching for Stores..."
+                        : stores.length > 0
+                        ? "Refresh Prices"
+                        : "Use Current Location to Find Prices"}
+                    </Button>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      label="Or enter zip code"
+                      value={zipCode}
+                      onChange={(e) => setZipCode(e.target.value)}
+                      onKeyPress={(e) => e.key === "Enter" && searchByZipCode()}
+                      size="small"
+                    />
+                    <Button
+                      fullWidth
+                      variant="outlined"
+                      onClick={searchByZipCode}
+                      disabled={isLocatingStores || !zipCode.trim()}
+                      sx={{ mt: 1, py: 1 }}
+                    >
+                      Search by Zip Code
+                    </Button>
                   </Grid>
                 </Grid>
               </Paper>
