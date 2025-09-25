@@ -4,7 +4,8 @@ import axios from "axios";
 import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
-import OpenAI from "openai";
+import { readFileSync } from "fs";
+import { Configuration, OpenAIApi } from "openai";
 import * as cheerio from "cheerio";
 import { chromium } from "playwright";
 import { scrapeGoogleShopping } from "./scraper.js";
@@ -21,6 +22,26 @@ const SERP_API_BASE_URL = "https://serpapi.com/search.json";
 // Scale Serp API configuration
 const SCALE_SERP_API_KEY = process.env.SCALE_SERP_API_KEY;
 const SCALE_SERP_API_BASE_URL = "https://api.scaleserp.com/search";
+
+// ScraperAPI configuration
+const SCRAPER_API_KEY = process.env.SCRAPER_API_KEY;
+const SCRAPER_API_BASE_URL = "http://api.scraperapi.com";
+
+// Mock data configuration
+const USE_MOCK_DATA = process.env.USE_MOCK_DATA === 'true';
+let mockData = null;
+
+// Load mock data if enabled
+if (USE_MOCK_DATA) {
+  try {
+    const mockDataPath = join(__dirname, 'mock-data.json');
+    mockData = JSON.parse(readFileSync(mockDataPath, 'utf8'));
+    console.log('🎭 Mock data mode enabled - using test data instead of API calls');
+  } catch (error) {
+    console.error('❌ Failed to load mock data:', error.message);
+    console.log('📡 Falling back to real API calls');
+  }
+}
 
 const app = express();
 app.use(
@@ -93,9 +114,14 @@ app.get("/api/google-price", async (req, res) => {
     }
 
     // Use unified price search function with full API priority chain
-    const userLocation = lat && lng ? { lat: parseFloat(lat), lng: parseFloat(lng) } : null;
-    const priceResult = await searchPriceWithFallback(item, store, userLocation);
-    
+    const userLocation =
+      lat && lng ? { lat: parseFloat(lat), lng: parseFloat(lng) } : null;
+    const priceResult = await searchPriceWithFallback(
+      item,
+      store,
+      userLocation
+    );
+
     if (priceResult.success) {
       clearTimeout(timeout);
       return res.json({
@@ -229,11 +255,10 @@ if (!GOOGLE_MAPS_API_KEY) {
 }
 
 // Initialize OpenAI
-const openai = new OpenAI.OpenAIApi(
-  new OpenAI.Configuration({
-    apiKey: process.env.OPENAI_API_KEY,
-  })
-);
+const configuration = new Configuration({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+const openai = new OpenAIApi(configuration);
 
 // Add this list of store types to filter out
 const EXCLUDED_STORE_TYPES = [
@@ -479,6 +504,165 @@ async function searchProductsWithScaleSerp(
   }
 }
 
+// ScraperAPI function for price searching via Google Shopping
+async function searchProductsWithScraperAPI(
+  itemName,
+  storeName,
+  userLocation,
+  retryCount = 0
+) {
+  try {
+    if (!SCRAPER_API_KEY) {
+      console.warn("ScraperAPI key not configured, skipping price search");
+      return null;
+    }
+
+    console.log(
+      `Searching ScraperAPI for: ${itemName} at ${storeName} (attempt ${
+        retryCount + 1
+      })`
+    );
+
+    // Construct simpler Google search URL (faster than shopping page)
+    const searchQuery = encodeURIComponent(`${itemName} price ${storeName}`);
+    const googleSearchUrl = `https://www.google.com/search?q=${searchQuery}`;
+
+    // ScraperAPI URL with optimized parameters for speed
+    const scraperApiUrl = `${SCRAPER_API_BASE_URL}?api_key=${SCRAPER_API_KEY}&url=${encodeURIComponent(
+      googleSearchUrl
+    )}&render=false&country_code=us&device_type=desktop`;
+
+    const response = await axios.get(scraperApiUrl, {
+      timeout: 20000, // Reduced to 20 seconds
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      },
+    });
+
+    console.log(`ScraperAPI response status: ${response.status}`);
+
+    if (response.status !== 200) {
+      throw new Error(`ScraperAPI returned status ${response.status}`);
+    }
+
+    // Parse the HTML response using Cheerio
+    const $ = cheerio.load(response.data);
+
+    // Extract price information from Google search results
+    const products = [];
+
+    // Look for price information in various parts of the page
+    const pageText = $("body").text();
+
+    // Try multiple regex patterns to find prices
+    const pricePatterns = [
+      /\$(\d+\.?\d*)/g, // Standard dollar prices
+      /(\d+\.?\d*)\s*dollars?/gi, // "X dollars"
+      /price:?\s*\$?(\d+\.?\d*)/gi, // "Price: $X"
+      /(\d+\.?\d*)\s*USD/gi, // "X USD"
+    ];
+
+    const foundPrices = [];
+
+    pricePatterns.forEach((pattern) => {
+      let match;
+      while (
+        (match = pattern.exec(pageText)) !== null &&
+        foundPrices.length < 10
+      ) {
+        const priceValue = parseFloat(match[1] || match[0].replace(/\$/, ""));
+        if (priceValue > 0 && priceValue < 1000) {
+          // Reasonable price range
+          foundPrices.push(priceValue);
+        }
+      }
+    });
+
+    // Also look in specific elements that commonly contain prices
+    $('.price, .cost, [class*="price"], [class*="cost"]').each(
+      (index, element) => {
+        const text = $(element).text().trim();
+        const priceMatch = text.match(/\$?(\d+\.?\d*)/);
+        if (priceMatch && foundPrices.length < 10) {
+          const price = parseFloat(priceMatch[1]);
+          if (price > 0 && price < 1000) {
+            foundPrices.push(price);
+          }
+        }
+      }
+    );
+
+    // If we found prices, use the most reasonable one (median price to avoid outliers)
+    if (foundPrices.length > 0) {
+      foundPrices.sort((a, b) => a - b);
+      const medianPrice = foundPrices[Math.floor(foundPrices.length / 2)];
+
+      products.push({
+        name: `${itemName} at ${storeName}`,
+        price: medianPrice,
+        source: "scraperapi",
+      });
+    }
+
+    console.log(
+      `ScraperAPI found ${products.length} products for ${itemName} at ${storeName}`
+    );
+
+    if (products.length === 0) {
+      console.log(`No ScraperAPI results for ${itemName} at ${storeName}`);
+      return null;
+    }
+
+    // Find the best match (lowest price)
+    const bestProduct = products.reduce((best, current) =>
+      current.price < best.price ? current : best
+    );
+
+    console.log(
+      `✅ ScraperAPI best match: ${bestProduct.name} - $${bestProduct.price}`
+    );
+
+    return {
+      name: bestProduct.name,
+      price: bestProduct.price,
+      store: storeName,
+      source: "scraperapi",
+      rating: null,
+      reviews: null,
+    };
+  } catch (error) {
+    console.error(
+      `ScraperAPI error for ${itemName} at ${storeName}:`,
+      error.message
+    );
+
+    // Retry logic for network errors
+    if (
+      retryCount < 2 &&
+      (error.code === "ECONNRESET" ||
+        error.code === "ETIMEDOUT" ||
+        error.code === "ECONNREFUSED" ||
+        error.message.includes("timeout"))
+    ) {
+      console.log(
+        `Retrying ScraperAPI for ${itemName} at ${storeName} in ${
+          (retryCount + 1) * 2
+        } seconds...`
+      );
+      await delay((retryCount + 1) * 2000); // Exponential backoff: 2s, 4s
+      return searchProductsWithScraperAPI(
+        itemName,
+        storeName,
+        userLocation,
+        retryCount + 1
+      );
+    }
+
+    return null;
+  }
+}
+
 // Unified price search function with full API priority chain
 async function searchPriceWithFallback(itemName, storeName, userLocation) {
   console.log(
@@ -556,7 +740,38 @@ async function searchPriceWithFallback(itemName, storeName, userLocation) {
     }
   }
 
-  // Step 3: Both APIs failed
+  // Step 3: Try ScraperAPI as third option
+  if (SCRAPER_API_KEY && storeName) {
+    console.log(`📡 Trying ScraperAPI for ${itemName} at ${storeName}`);
+    try {
+      const scraperApiResult = await searchProductsWithScraperAPI(
+        itemName,
+        storeName,
+        userLocation
+      );
+
+      if (scraperApiResult && scraperApiResult.price) {
+        console.log(
+          `✅ ScraperAPI success: $${scraperApiResult.price} for ${itemName} at ${storeName}`
+        );
+        return {
+          success: true,
+          price: scraperApiResult.price,
+          productName: scraperApiResult.name || itemName,
+          store: scraperApiResult.store || storeName,
+          source: "scraperapi",
+          rating: scraperApiResult.rating,
+          reviews: scraperApiResult.reviews,
+        };
+      }
+    } catch (error) {
+      console.log(
+        `⚠️ ScraperAPI failed for ${itemName} at ${storeName}: ${error.message}`
+      );
+    }
+  }
+
+  // Step 4: All APIs failed
   console.log(`❌ All APIs failed for ${itemName} at ${storeName}`);
   return {
     success: false,
@@ -599,6 +814,41 @@ app.get("/api/stores", async (req, res) => {
         ", "
       )}`
     );
+
+    // Use mock data if enabled
+    if (USE_MOCK_DATA && mockData) {
+      console.log('🎭 Using mock data for stores and prices');
+      const mockStores = mockData.stores.map(store => ({
+        ...store,
+        store: store.name,
+        place_id: store.place_id,
+        id: store.place_id,
+        items: searchItems.map(itemName => {
+          const mockItem = store.items[itemName.toLowerCase()];
+          return {
+            name: itemName,
+            productName: mockItem ? mockItem.productName : itemName,
+            price: mockItem ? mockItem.price : null,
+            lastUpdated: new Date().toISOString(),
+            isGenericName: !mockItem,
+            productDetail: mockItem ? "mock-data" : null,
+          };
+        }),
+      }));
+
+      return res.json({
+        success: true,
+        stores: mockStores,
+        metadata: {
+          searchLocation: { lat: parseFloat(latitude), lng: parseFloat(longitude) },
+          timestamp: new Date().toISOString(),
+          cacheFor: 3600,
+          itemCount: searchItems.length,
+          storeCount: mockStores.length,
+          source: "mock-data",
+        },
+      });
+    }
 
     // Step 1: Find nearby grocery stores using Google Maps Places API
     const nearbyStores = await findNearbyGroceryStores(
@@ -916,6 +1166,135 @@ app.post("/api/compare", async (req, res) => {
 // Mapbox token endpoint
 app.get("/api/mapbox-token", (req, res) => {
   res.json({ token: process.env.MAPBOX_TOKEN });
+});
+
+// AI-powered price analysis and summarization endpoint
+app.post("/api/ai-summary", async (req, res) => {
+  try {
+    const { stores, items, userPreferences } = req.body;
+
+    if (!stores || !Array.isArray(stores) || stores.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: "Stores data is required",
+      });
+    }
+
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: "Items data is required",
+      });
+    }
+
+    // Prepare data for AI analysis
+    const storeData = stores.map(store => ({
+      name: store.name || store.store,
+      distance: store.distance,
+      rating: store.rating,
+      items: store.items.filter(item => item.price !== null).map(item => ({
+        name: item.name,
+        price: item.price,
+        productName: item.productName || item.name,
+      })),
+      totalCost: store.items
+        .filter(item => item.price !== null)
+        .reduce((sum, item) => sum + (item.price || 0), 0),
+    }));
+
+    // Create analysis prompt
+    const prompt = `As a grocery shopping expert, analyze this price comparison data and provide helpful insights.
+
+Shopping List: ${items.join(', ')}
+
+Store Price Comparison:
+${storeData.map(store => `
+${store.name} (${store.distance?.toFixed(1)} miles away, ${store.rating}/5 stars):
+${store.items.map(item => `  • ${item.name}: $${item.price?.toFixed(2)} (${item.productName})`).join('\n')}
+Total for available items: $${store.totalCost.toFixed(2)}
+`).join('\n')}
+
+Please provide:
+1. **Best Overall Value**: Which store offers the best total savings
+2. **Individual Item Winners**: Best price for each item
+3. **Money-Saving Tips**: Specific recommendations for this shopping trip
+4. **Store Insights**: Brief analysis of each store's pricing strategy
+5. **Smart Shopping Strategy**: How to optimize this shopping trip
+
+Keep the response concise, practical, and focused on actionable insights. Use bullet points and clear formatting.`;
+
+    if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'your_openai_api_key_here') {
+      // Return basic analysis without AI if no API key
+      const cheapestStore = storeData.reduce((best, current) => 
+        current.totalCost < best.totalCost ? current : best
+      );
+
+      return res.json({
+        success: true,
+        summary: {
+          bestOverallValue: `${cheapestStore.name} offers the best total value at $${cheapestStore.totalCost.toFixed(2)}`,
+          individualWinners: items.map(item => {
+            const bestPrice = Math.min(...storeData
+              .map(store => store.items.find(i => i.name === item)?.price || Infinity)
+              .filter(price => price !== Infinity)
+            );
+            const bestStore = storeData.find(store => 
+              store.items.find(i => i.name === item && i.price === bestPrice)
+            );
+            return `${item}: $${bestPrice.toFixed(2)} at ${bestStore?.name}`;
+          }),
+          tips: [
+            `Save $${(storeData.reduce((max, store) => Math.max(max, store.totalCost), 0) - cheapestStore.totalCost).toFixed(2)} by shopping at ${cheapestStore.name}`,
+            "Compare prices item by item for maximum savings",
+            "Consider store distance and gas costs in your total calculation"
+          ],
+          source: "basic-analysis"
+        }
+      });
+    }
+
+    // Generate AI analysis
+    const completion = await openai.createChatCompletion({
+      model: "gpt-3.5-turbo",
+      messages: [{
+        role: "user",
+        content: prompt
+      }],
+      max_tokens: 800,
+      temperature: 0.7,
+    });
+
+    const aiInsights = completion.data.choices[0].message.content;
+
+    // Add mock insights if available
+    let additionalInsights = {};
+    if (USE_MOCK_DATA && mockData && mockData.ai_insights) {
+      additionalInsights = {
+        generalTips: mockData.ai_insights.general_tips,
+        seasonalNotes: items.map(item => 
+          mockData.ai_insights.seasonal_notes[item.toLowerCase()] || null
+        ).filter(Boolean),
+      };
+    }
+
+    res.json({
+      success: true,
+      summary: {
+        aiAnalysis: aiInsights,
+        insights: additionalInsights,
+        timestamp: new Date().toISOString(),
+        source: "openai-gpt35"
+      }
+    });
+
+  } catch (error) {
+    console.error("AI Summary error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to generate AI summary",
+      details: error.message
+    });
+  }
 });
 
 // Frontend routing is handled by Nginx in production

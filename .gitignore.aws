@@ -1,0 +1,17 @@
+# AWS-specific files that should only exist on aws-deployment branch
+.elasticbeanstalk/
+Dockerfile.single
+Dockerrun.aws.json
+EB-DEPLOYMENT.md
+deploy-eb.sh
+docker-compose.eb.yml
+nginx.eb.conf
+start-eb.sh
+.env.production
+
+# AWS deployment logs
+*.zip
+
+# EB CLI logs and temp files
+.elasticbeanstalk/logs/
+.elasticbeanstalk/app_versions/

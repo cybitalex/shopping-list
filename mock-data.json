@@ -1,0 +1,114 @@
+{
+  "stores": [
+    {
+      "name": "Walmart Supercenter",
+      "address": "123 Main St, Fayetteville, NC",
+      "distance": 2.1,
+      "rating": 4.2,
+      "latitude": 35.0806558,
+      "longitude": -78.9903925,
+      "place_id": "mock_walmart_001",
+      "items": {
+        "apple": { "price": 1.98, "productName": "Gala Apples (3 lb bag)", "brand": "Great Value" },
+        "banana": { "price": 0.68, "productName": "Fresh Bananas (per lb)", "brand": "Fresh" },
+        "ground turkey": { "price": 4.97, "productName": "Ground Turkey (1 lb)", "brand": "Butterball" },
+        "chicken breast": { "price": 3.47, "productName": "Boneless Chicken Breast (per lb)", "brand": "Great Value" },
+        "milk": { "price": 3.24, "productName": "Whole Milk (1 gallon)", "brand": "Great Value" },
+        "bread": { "price": 1.00, "productName": "White Bread (20 oz)", "brand": "Great Value" },
+        "eggs": { "price": 2.12, "productName": "Large Eggs (dozen)", "brand": "Great Value" },
+        "rice": { "price": 2.48, "productName": "Jasmine Rice (2 lb)", "brand": "Great Value" }
+      }
+    },
+    {
+      "name": "Target",
+      "address": "456 Oak Ave, Fayetteville, NC",
+      "distance": 3.4,
+      "rating": 4.4,
+      "latitude": 35.0639104,
+      "longitude": -79.016267,
+      "place_id": "mock_target_001",
+      "items": {
+        "apple": { "price": 2.29, "productName": "Honeycrisp Apples (2 lb bag)", "brand": "Good & Gather" },
+        "banana": { "price": 0.79, "productName": "Organic Bananas (per lb)", "brand": "Good & Gather" },
+        "ground turkey": { "price": 5.49, "productName": "93/7 Ground Turkey (1 lb)", "brand": "Good & Gather" },
+        "chicken breast": { "price": 4.99, "productName": "Organic Chicken Breast (per lb)", "brand": "Good & Gather" },
+        "milk": { "price": 3.79, "productName": "Organic Whole Milk (1 gallon)", "brand": "Good & Gather" },
+        "bread": { "price": 1.79, "productName": "Whole Wheat Bread (20 oz)", "brand": "Good & Gather" },
+        "eggs": { "price": 3.49, "productName": "Cage-Free Large Eggs (dozen)", "brand": "Good & Gather" },
+        "rice": { "price": 3.29, "productName": "Organic Jasmine Rice (2 lb)", "brand": "Good & Gather" }
+      }
+    },
+    {
+      "name": "Food Lion",
+      "address": "789 Pine St, Fayetteville, NC",
+      "distance": 1.8,
+      "rating": 3.9,
+      "latitude": 35.1819333,
+      "longitude": -78.98449819999999,
+      "place_id": "mock_foodlion_001",
+      "items": {
+        "apple": { "price": 1.79, "productName": "Red Delicious Apples (3 lb bag)", "brand": "Nature's Promise" },
+        "banana": { "price": 0.58, "productName": "Bananas (per lb)", "brand": "Fresh" },
+        "ground turkey": { "price": 4.29, "productName": "Ground Turkey (1 lb)", "brand": "Nature's Promise" },
+        "chicken breast": { "price": 2.99, "productName": "Chicken Breast (per lb)", "brand": "Fresh" },
+        "milk": { "price": 2.89, "productName": "2% Milk (1 gallon)", "brand": "Food Lion" },
+        "bread": { "price": 0.89, "productName": "White Sandwich Bread (20 oz)", "brand": "Food Lion" },
+        "eggs": { "price": 1.89, "productName": "Large Eggs (dozen)", "brand": "Food Lion" },
+        "rice": { "price": 1.99, "productName": "Long Grain Rice (2 lb)", "brand": "Food Lion" }
+      }
+    },
+    {
+      "name": "ALDI",
+      "address": "321 Cedar Rd, Fayetteville, NC",
+      "distance": 4.2,
+      "rating": 4.6,
+      "latitude": 35.0525442,
+      "longitude": -78.9597898,
+      "place_id": "mock_aldi_001",
+      "items": {
+        "apple": { "price": 1.49, "productName": "Gala Apples (3 lb bag)", "brand": "Simply Nature" },
+        "banana": { "price": 0.44, "productName": "Bananas (per lb)", "brand": "Fresh" },
+        "ground turkey": { "price": 3.99, "productName": "Ground Turkey (1 lb)", "brand": "Never Any!" },
+        "chicken breast": { "price": 2.69, "productName": "Chicken Breast (per lb)", "brand": "Never Any!" },
+        "milk": { "price": 2.49, "productName": "Whole Milk (1 gallon)", "brand": "Simply Nature" },
+        "bread": { "price": 0.85, "productName": "White Bread (20 oz)", "brand": "L'oven Fresh" },
+        "eggs": { "price": 1.65, "productName": "Large Eggs (dozen)", "brand": "Simply Nature" },
+        "rice": { "price": 1.79, "productName": "Jasmine Rice (2 lb)", "brand": "Earthly Grains" }
+      }
+    },
+    {
+      "name": "Whole Foods Market",
+      "address": "555 Elm St, Fayetteville, NC",
+      "distance": 5.1,
+      "rating": 4.3,
+      "latitude": 35.0328713,
+      "longitude": -78.9781397,
+      "place_id": "mock_wholefoods_001",
+      "items": {
+        "apple": { "price": 3.99, "productName": "Organic Honeycrisp Apples (2 lb)", "brand": "365 Everyday Value" },
+        "banana": { "price": 1.99, "productName": "Organic Bananas (per lb)", "brand": "365 Everyday Value" },
+        "ground turkey": { "price": 8.99, "productName": "Organic Ground Turkey (1 lb)", "brand": "365 Everyday Value" },
+        "chicken breast": { "price": 9.99, "productName": "Organic Free-Range Chicken Breast (per lb)", "brand": "365 Everyday Value" },
+        "milk": { "price": 5.49, "productName": "Organic Whole Milk (1 gallon)", "brand": "365 Everyday Value" },
+        "bread": { "price": 3.49, "productName": "Organic Whole Grain Bread (20 oz)", "brand": "365 Everyday Value" },
+        "eggs": { "price": 4.99, "productName": "Pasture-Raised Eggs (dozen)", "brand": "365 Everyday Value" },
+        "rice": { "price": 4.49, "productName": "Organic Jasmine Rice (2 lb)", "brand": "365 Everyday Value" }
+      }
+    }
+  ],
+  "ai_insights": {
+    "general_tips": [
+      "ALDI consistently offers the best prices across most categories",
+      "Whole Foods is premium-priced but offers organic options",
+      "Food Lion provides good value for basic groceries",
+      "Target's Good & Gather brand competes well with premium options",
+      "Walmart offers the largest selection at competitive prices"
+    ],
+    "seasonal_notes": {
+      "apples": "Apple prices typically drop in fall (September-November) when local harvest is available",
+      "banana": "Banana prices remain fairly stable year-round due to tropical growing regions",
+      "ground turkey": "Turkey prices often drop before Thanksgiving and Christmas holidays",
+      "chicken breast": "Chicken prices may fluctuate based on feed costs and seasonal demand"
+    }
+  }
+}

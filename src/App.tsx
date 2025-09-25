@@ -314,7 +314,11 @@ function App() {
     }
 
     // Only clear stores if we won't be using cache, to prevent UI flicker
-    if (!useStoreCaching || !currentLocation || !storeCacheService.getCachedStores(currentLocation)) {
+    if (
+      !useStoreCaching ||
+      !currentLocation ||
+      !storeCacheService.getCachedStores(currentLocation)
+    ) {
       setStores([]);
     }
     setSelectedStore(null);
@@ -411,7 +415,41 @@ function App() {
             `🔍 Now fetching fresh prices for ${searchItems.length} items at cached stores...`
           );
 
-          // Skip the API call since we're using cached stores, but let StoreComparison handle price fetching
+          // Now trigger manual price fetching for the cached stores using the /api/stores endpoint
+          // This ensures we get fresh prices for the current shopping list items
+          try {
+            const timestamp = useStoreCaching ? "" : `&_t=${Date.now()}`;
+            const storeResponse = await fetch(
+              `/api/stores?latitude=${location.lat}&longitude=${
+                location.lng
+              }&items=${encodeURIComponent(
+                JSON.stringify(searchItems)
+              )}${timestamp}`
+            );
+
+            if (!storeResponse.ok) {
+              throw new Error(`HTTP error! status: ${storeResponse.status}`);
+            }
+
+            const storeData = await storeResponse.json();
+            const stores = storeData.stores || [];
+
+            console.log(
+              `🔄 Updated cached stores with fresh prices for ${searchItems.length} items`
+            );
+
+            // Update stores with fresh price data
+            setStores(stores);
+            setSelectedStore(null);
+            setShowCheapestSummary(false);
+          } catch (error) {
+            console.error(
+              "Error fetching fresh prices for cached stores:",
+              error
+            );
+            setError("Failed to fetch prices for cached stores");
+          }
+
           return;
         }
       }
