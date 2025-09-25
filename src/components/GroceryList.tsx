@@ -41,7 +41,7 @@ const GroceryList: React.FC<GroceryListProps> = ({
   const [newItem, setNewItem] = useState("");
 
   // Function to find the cheapest price for an item across all stores
-  const findCheapestPrice = (itemName: string) => {
+  const findCheapestPrice = (itemName: string): { price: number | null; store: string | null } => {
     let cheapestPrice: number | null = null;
     let cheapestStore: string | null = null;
 
@@ -49,7 +49,7 @@ const GroceryList: React.FC<GroceryListProps> = ({
       const found = store.items.find(
         (item) => item.name.toLowerCase() === itemName.toLowerCase() && item.price !== null
       );
-      if (found && found.price !== null) {
+      if (found && found.price !== null && typeof found.price === 'number') {
         if (cheapestPrice === null || found.price < cheapestPrice) {
           cheapestPrice = found.price;
           cheapestStore = store.name;
@@ -136,15 +136,15 @@ const GroceryList: React.FC<GroceryListProps> = ({
                         <Typography sx={{ fontWeight: 500 }}>
                           {item.name}
                         </Typography>
-                        {cheapest.price !== null && cheapest.store && (
-                          <Chip
-                            icon={<StoreIcon />}
-                            label={`$${cheapest.price.toFixed(2)} at ${cheapest.store}`}
-                            size="small"
-                            color="success"
-                            variant="outlined"
-                          />
-                        )}
+                               {cheapest.price !== null && cheapest.store && (
+                                 <Chip
+                                   icon={<StoreIcon />}
+                                   label={`$${typeof cheapest.price === 'number' ? cheapest.price.toFixed(2) : 'N/A'} at ${cheapest.store}`}
+                                   size="small"
+                                   color="success"
+                                   variant="outlined"
+                                 />
+                               )}
                       </Box>
                     }
                   />

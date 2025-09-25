@@ -564,7 +564,7 @@ function App() {
           <AIAssistant
             stores={stores as any}
             items={items}
-            currentLocation={currentLocation}
+            currentLocation={currentLocation || undefined}
           />
 
           {/* ML Recommendations */}
