@@ -36,7 +36,7 @@ if (USE_MOCK_DATA) {
   try {
     const mockDataPath = join(__dirname, 'mock-data.json');
     mockData = JSON.parse(readFileSync(mockDataPath, 'utf8'));
-    console.log('🎭 Mock data mode enabled - using test data instead of API calls');
+    console.log('🎭 Mock data mode enabled - using real stores but mock prices for testing');
   } catch (error) {
     console.error('❌ Failed to load mock data:', error.message);
     console.log('📡 Falling back to real API calls');
@@ -669,6 +669,57 @@ async function searchPriceWithFallback(itemName, storeName, userLocation) {
     `🔍 Price search for: ${itemName}${storeName ? ` at ${storeName}` : ""}`
   );
 
+  // Step 0: Use mock data if enabled (for testing/development)
+  if (USE_MOCK_DATA && mockData) {
+    console.log(`🎭 Using mock data for pricing: ${itemName} at ${storeName}`);
+    
+    // Create simulated price based on item type and store characteristics
+    const getSimulatedPrice = (item, store) => {
+      // Base prices for common items
+      const basePrices = {
+        'apple': 1.50,
+        'banana': 0.65,
+        'ground turkey': 4.50,
+        'chicken breast': 3.50,
+        'milk': 3.00,
+        'bread': 1.25,
+        'eggs': 2.25,
+        'rice': 2.75
+      };
+      
+      let basePrice = basePrices[item.toLowerCase()] || 2.99; // default price
+      
+      // Add store-specific pricing variations
+      if (store.toLowerCase().includes('whole foods') || store.toLowerCase().includes('fresh market')) {
+        basePrice *= 1.4; // Premium stores 40% higher
+      } else if (store.toLowerCase().includes('aldi') || store.toLowerCase().includes('walmart')) {
+        basePrice *= 0.85; // Discount stores 15% lower
+      } else if (store.toLowerCase().includes('target')) {
+        basePrice *= 1.1; // Target slightly higher
+      }
+      
+      // Add some randomization to make it realistic
+      const variation = (Math.random() - 0.5) * 0.3; // ±15% variation
+      basePrice *= (1 + variation);
+      
+      return Math.round(basePrice * 100) / 100; // Round to 2 decimal places
+    };
+    
+    const simulatedPrice = getSimulatedPrice(itemName, storeName || 'generic');
+    
+    console.log(`✅ Mock data simulated: $${simulatedPrice} for ${itemName} at ${storeName}`);
+    
+    return {
+      success: true,
+      price: simulatedPrice,
+      productName: `${itemName.charAt(0).toUpperCase() + itemName.slice(1)} (simulated)`,
+      store: storeName,
+      source: "mock-simulation",
+      rating: null,
+      reviews: null
+    };
+  }
+
   // Step 1: Try SerpAPI first (preferred method)
   if (SERP_API_KEY && storeName) {
     console.log(`📡 Trying SerpAPI for ${itemName} at ${storeName}`);
@@ -815,40 +866,8 @@ app.get("/api/stores", async (req, res) => {
       )}`
     );
 
-    // Use mock data if enabled
-    if (USE_MOCK_DATA && mockData) {
-      console.log('🎭 Using mock data for stores and prices');
-      const mockStores = mockData.stores.map(store => ({
-        ...store,
-        store: store.name,
-        place_id: store.place_id,
-        id: store.place_id,
-        items: searchItems.map(itemName => {
-          const mockItem = store.items[itemName.toLowerCase()];
-          return {
-            name: itemName,
-            productName: mockItem ? mockItem.productName : itemName,
-            price: mockItem ? mockItem.price : null,
-            lastUpdated: new Date().toISOString(),
-            isGenericName: !mockItem,
-            productDetail: mockItem ? "mock-data" : null,
-          };
-        }),
-      }));
-
-      return res.json({
-        success: true,
-        stores: mockStores,
-        metadata: {
-          searchLocation: { lat: parseFloat(latitude), lng: parseFloat(longitude) },
-          timestamp: new Date().toISOString(),
-          cacheFor: 3600,
-          itemCount: searchItems.length,
-          storeCount: mockStores.length,
-          source: "mock-data",
-        },
-      });
-    }
+    // Note: Mock data will be used for PRICING only, not for store discovery
+    // We still want to find real nearby stores using Google Maps API
 
     // Step 1: Find nearby grocery stores using Google Maps Places API
     const nearbyStores = await findNearbyGroceryStores(
